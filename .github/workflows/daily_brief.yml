@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Run unit tests
+        run: python -m pytest tests/ -v --tb=short
+
       - name: Run briefing agent
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
