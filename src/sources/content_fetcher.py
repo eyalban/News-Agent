@@ -11,10 +11,10 @@ from src.config import REQUEST_TIMEOUT_SECONDS
 logger = logging.getLogger(__name__)
 
 # Max articles to fetch full content for
-MAX_ARTICLES_TO_FETCH = 20
+MAX_ARTICLES_TO_FETCH = 30
 
 # Max chars of extracted text per article
-MAX_CONTENT_LENGTH = 1500
+MAX_CONTENT_LENGTH = 3000
 
 # Domains known to block scraping — skip these
 BLOCKED_DOMAINS = {"twitter.com", "x.com", "facebook.com", "instagram.com",

@@ -40,10 +40,12 @@ def fetch_direct_feeds(start_time: datetime, end_time: datetime) -> list[dict]:
                 for date_field in ("published", "updated", "created"):
                     if hasattr(entry, date_field):
                         try:
-                            pub_date = dateparser.parse(getattr(entry, date_field))
-                            if pub_date and pub_date.tzinfo is None:
-                                pub_date = pub_date.replace(tzinfo=timezone.utc)
-                            break
+                            parsed = dateparser.parse(getattr(entry, date_field))
+                            if parsed is not None:
+                                if parsed.tzinfo is None:
+                                    parsed = parsed.replace(tzinfo=timezone.utc)
+                                pub_date = parsed
+                                break
                         except (ValueError, TypeError):
                             continue
 

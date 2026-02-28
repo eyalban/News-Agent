@@ -10,9 +10,10 @@ SOURCE_PRIORITY = [
     "Times of Israel",
     "Jerusalem Post",
     "Ynetnews",
-    "Israel National News",
     "Reuters",
     "BBC",
+    "Al Jazeera",
+    "i24 News",
 ]
 
 
@@ -36,14 +37,18 @@ def _tokenize(text: str) -> set[str]:
 
 
 def _title_similarity(title_a: str, title_b: str) -> float:
-    """Compute word-overlap ratio between two titles."""
+    """Compute Jaccard similarity (intersection / union) between two titles.
+
+    Uses union-based denominator to prevent short generic titles from
+    absorbing longer, distinct titles as false duplicates.
+    """
     tokens_a = _tokenize(title_a)
     tokens_b = _tokenize(title_b)
     if not tokens_a or not tokens_b:
         return 0.0
     intersection = tokens_a & tokens_b
-    smaller = min(len(tokens_a), len(tokens_b))
-    return len(intersection) / smaller if smaller > 0 else 0.0
+    union = tokens_a | tokens_b
+    return len(intersection) / len(union) if union else 0.0
 
 
 def _source_rank(source: str) -> int:
@@ -55,7 +60,7 @@ def _source_rank(source: str) -> int:
     return len(SOURCE_PRIORITY)
 
 
-def deduplicate(articles: list[dict], similarity_threshold: float = 0.7) -> list[dict]:
+def deduplicate(articles: list[dict], similarity_threshold: float = 0.6) -> list[dict]:
     """Remove duplicate articles based on URL and title similarity.
 
     When duplicates are found, keep the article from the higher-priority source.

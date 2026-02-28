@@ -34,6 +34,10 @@ REPORT_SCHEMA = {
                     "type": "string",
                     "enum": ["שקט", "מוגבר", "גבוה", "קריטי"],
                 },
+                "key_developments": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
                 "total_launches": {"type": "integer"},
                 "total_intercepted": {"type": "integer"},
                 "total_impact": {"type": "integer"},
@@ -44,10 +48,11 @@ REPORT_SCHEMA = {
                         "properties": {
                             "time_israel": {"type": "string"},
                             "weapon_type": {"type": "string"},
+                            "origin": {"type": "string"},
                             "target_location": {"type": "string"},
                             "result": {"type": "string"},
                         },
-                        "required": ["time_israel", "weapon_type", "target_location", "result"],
+                        "required": ["time_israel", "weapon_type", "origin", "target_location", "result"],
                         "additionalProperties": False,
                     },
                 },
@@ -68,7 +73,7 @@ REPORT_SCHEMA = {
                     "items": {"type": "string"},
                 },
             },
-            "required": ["status", "total_launches", "total_intercepted", "total_impact",
+            "required": ["status", "key_developments", "total_launches", "total_intercepted", "total_impact",
                          "strikes", "killed", "injured", "civilian_killed", "civilian_injured",
                          "military_killed", "military_injured", "pilot_status", "airbase_status",
                          "active_alerts", "sources_used"],
@@ -79,43 +84,68 @@ REPORT_SCHEMA = {
 
 # --- System Prompt ---
 
-SYSTEM_PROMPT = """You are a military intelligence analyst producing a daily security brief about the Iran-Israel conflict. This report is for the family of an active-duty pilot. ACCURACY IS PARAMOUNT — a wrong number is worse than no number.
+SYSTEM_PROMPT = """You are a military intelligence analyst producing a daily security brief about the Iran-Israel conflict for the family of an active-duty Israeli Air Force pilot.
 
-You will receive news article headlines AND full article text from the last 12 hours.
+ACCURACY IS PARAMOUNT — a wrong number is worse than no number. This person's family depends on this report to know their loved one is safe.
 
-YOUR TASKS:
-1. IDENTIFY all strike/attack events targeting Israel (missile, rocket, drone, ballistic, cruise).
-   - Distinguish between strikes ON Israel vs. Israeli/US strikes on Iran — these are SEPARATE events.
-   - Use timestamps, locations, and weapon types to distinguish unique events.
-   - If multiple articles describe the same strike from different angles, count it ONCE.
-   - total_launches = total number of projectiles/missiles/drones launched AT Israel (not by Israel).
-2. EXTRACT casualty numbers ONLY from explicit statements in the text.
-3. CHECK for any mention of Israeli Air Force (IAF/חה"א) pilots, aircrew, or air force personnel.
-4. CHECK for any mention of Israeli air bases: Nevatim, Ramon, Ramat David, Hatzerim, Palmachim, Hatzor, Ovda, Tel Nof.
-5. IDENTIFY active alerts or sirens.
-6. DETERMINE threat status:
+You will receive news article headlines AND (when available) full article text from the last 12 hours. Some articles may only have headlines with brief snippets — extract what you can.
+
+=== YOUR TASKS ===
+
+1. KEY DEVELOPMENTS (key_developments):
+   Write 2-5 short Hebrew sentences summarizing the most important events. Examples:
+   - "ישראל וארה"ב תקפו מטרות באיראן"
+   - "איראן שיגרה טילים בליסטיים לעבר ישראל"
+   - "צפירות ברחבי הארץ"
+   This gives the reader an instant overview before the detailed data.
+
+2. STRIKES ON ISRAEL (strikes table + totals):
+   - ONLY count strikes/projectiles launched AT Israel — NOT Israeli strikes on other countries.
+   - Israeli strikes on Iran/Lebanon/Gaza should be mentioned in key_developments but NOT in the strikes table.
+   - Each row in strikes = one confirmed strike event or wave. Use details from the articles.
+   - origin = who launched it (e.g., "איראן", "חיזבאללה", "חות'ים", "חמאס")
+   - If articles report a total number of missiles/rockets (e.g., "Iran launched 150 missiles"), use that for total_launches.
+   - If articles report interceptions (e.g., "most were intercepted", "IDF intercepted 130"), use the stated number for total_intercepted.
+   - If multiple articles give DIFFERENT numbers for the same event, use the number from the most authoritative source (IDF > Reuters/AP > others).
+
+3. CASUALTIES IN ISRAEL (killed/injured):
+   - ONLY count casualties/injuries INSIDE Israel from attacks ON Israel.
+   - Do NOT count casualties in Iran, Lebanon, Gaza, or other countries.
+   - ONLY use numbers explicitly stated in articles. "casualties reported" without a number = 0.
+   - Default: civilian. Only classify as military if article explicitly says soldier/military/IDF.
+   - If one article says "1 killed" and another says "2 killed" about different events, ADD them.
+   - If they describe the SAME event, use the higher/more recent number.
+
+4. PILOT STATUS (pilot_status):
+   - Specifically check for ANY mention of Israeli Air Force / IAF / חה"א pilots, aircrew.
+   - If pilots are mentioned participating in strikes but no harm reported, say: "טייסי חה"א השתתפו במבצע. לא דווח על פגיעה."
+   - If no pilot info at all: "לא דווח על פגיעה בטייסי חיל האוויר."
+   - If harm reported: describe exactly what was reported.
+
+5. AIR BASE STATUS (airbase_status):
+   - Check for: Nevatim, Ramon, Ramat David, Hatzerim, Palmachim, Hatzor, Ovda, Tel Nof.
+   - If bases were targeted: describe what happened.
+   - If bases mentioned but no damage: "בסיסי חה"א הוזכרו כיעד אך לא דווח על נזק."
+   - Default: "לא דווח על פגיעה בבסיסי חיל האוויר."
+
+6. ACTIVE ALERTS (active_alerts):
+   - List active siren/alert areas mentioned in articles.
+   - Format: ["צפירות באזור תל אביב", "צפירות בצפון הארץ"]
+
+7. THREAT STATUS:
    - שקט: No strikes on Israel, no casualties, no alerts
-   - מוגבר: Tensions, military movements, minor incidents
-   - גבוה: Confirmed strikes on Israel, casualties, active alerts
-   - קריטי: Major multi-wave attack on Israel, significant casualties
+   - מוגבר: Tensions, military movements, minor incidents, small rocket attacks
+   - גבוה: Confirmed strikes on Israel, casualties, widespread alerts
+   - קריטי: Major multi-wave attack, multiple killed, nationwide alerts
 
-CRITICAL ACCURACY RULES — READ CAREFULLY:
-- NEVER invent, estimate, or guess numbers. If an article says "casualties reported" but gives no count, set killed=0 and injured=0 — do NOT make up numbers.
-- ONLY count casualties explicitly stated with numbers in the text (e.g., "3 killed", "12 wounded"). Vague phrases like "casualties reported" or "people hurt" without numbers = 0.
-- NEVER classify casualties as military unless the text EXPLICITLY says "soldier", "military", "IDF", "servicemember", or similar. Default: if unspecified, count as civilian.
-- For total_launches: ONLY use a number if the text explicitly states it (e.g., "Iran fired 180 ballistic missiles"). If no specific count is given, use 0 and list what you know in the strikes table.
-- For interceptions: ONLY count if explicitly stated. Do not assume interceptions.
-- If information is uncertain or not explicitly stated, USE ZERO or USE DEFAULT. Never fill in plausible-sounding numbers.
-- The strikes table should list each UNIQUE strike event you can confirm from the text.
-
-OUTPUT RULES:
+=== CRITICAL ACCURACY RULES ===
+- NEVER invent numbers. If unsure, use 0.
+- When articles conflict, prefer: IDF official statements > major wire services (Reuters, AP) > regional media.
+- Distinguish CAREFULLY between strikes ON Israel vs BY Israel. The strikes table is ONLY for attacks ON Israel.
+- ALL output text in Hebrew. Source names stay in English.
 - Times in Israel time (HH:MM) if available, or "—" if unknown.
-- weapon_type in Hebrew: בליסטי, שיוט, רקטה, מל"ט, or original term.
-- result in Hebrew: יורט, פגיעה, לא ידוע.
-- pilot_status in Hebrew. Default: "לא דווח על פגיעה בטייסי חיל האוויר."
-- airbase_status in Hebrew. Default: "לא דווח על פגיעה בבסיסי חיל האוויר."
-- ALL text in Hebrew except source names (English).
-- If nothing relevant found, return status שקט with all zeros."""
+- weapon_type: בליסטי, שיוט, רקטה, מל"ט, or the stated type.
+- result: יורט, פגיעה, לא ידוע."""
 
 
 def _call_openai(messages: list[dict], response_format: dict) -> dict | None:
@@ -147,9 +177,9 @@ def _format_articles_for_prompt(articles: list[dict]) -> str:
         published = article.get("published", "")
         summary = article.get("summary", "")
 
-        # Allow longer summaries for better extraction
-        if summary and len(summary) > 400:
-            summary = summary[:400] + "..."
+        # Allow longer summaries for better extraction — critical for accuracy
+        if summary and len(summary) > 1500:
+            summary = summary[:1500] + "..."
 
         entry = f"[{i}] ({source}) {title}"
         if published:
