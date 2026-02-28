@@ -143,6 +143,31 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
             </tr>
         </table>"""
 
+    # --- Casualty details ---
+    casualty_details = report.get("casualty_details", [])
+    if casualty_details:
+        detail_rows = ""
+        for cd in casualty_details:
+            desc = cd.get("description", "—")
+            loc = cd.get("location", "—")
+            cstatus = cd.get("status", "—")
+            status_color = "#b71c1c" if "נהרג" in cstatus else "#e65100"
+            detail_rows += f"""<tr>
+                <td style="padding:4px 8px;border-bottom:1px solid #eee;{rtl}">{desc}</td>
+                <td style="padding:4px 8px;border-bottom:1px solid #eee;{rtl}">{loc}</td>
+                <td style="padding:4px 8px;border-bottom:1px solid #eee;color:{status_color};font-weight:bold;{rtl}">{cstatus}</td>
+            </tr>"""
+        casualties_html += f"""<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;{rtl}">
+            <thead>
+                <tr style="background:#f5f5f5;">
+                    <th style="padding:6px 8px;text-align:right;border-bottom:2px solid #ccc;">פרטים</th>
+                    <th style="padding:6px 8px;text-align:right;border-bottom:2px solid #ccc;">מיקום</th>
+                    <th style="padding:6px 8px;text-align:right;border-bottom:2px solid #ccc;">מצב</th>
+                </tr>
+            </thead>
+            <tbody>{detail_rows}</tbody>
+        </table>"""
+
     # --- Pilot status ---
     pilot_status = report.get("pilot_status", "לא דווח על פגיעה בטייסי חיל האוויר.")
     pilot_is_clear = "לא דווח על פגיעה" in pilot_status

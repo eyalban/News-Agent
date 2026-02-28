@@ -62,6 +62,19 @@ REPORT_SCHEMA = {
                 "civilian_injured": {"type": "integer"},
                 "military_killed": {"type": "integer"},
                 "military_injured": {"type": "integer"},
+                "casualty_details": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "description": {"type": "string"},
+                            "location": {"type": "string"},
+                            "status": {"type": "string"},
+                        },
+                        "required": ["description", "location", "status"],
+                        "additionalProperties": False,
+                    },
+                },
                 "pilot_status": {"type": "string"},
                 "airbase_status": {"type": "string"},
                 "active_alerts": {
@@ -75,7 +88,8 @@ REPORT_SCHEMA = {
             },
             "required": ["status", "key_developments", "total_launches", "total_intercepted", "total_impact",
                          "strikes", "killed", "injured", "civilian_killed", "civilian_injured",
-                         "military_killed", "military_injured", "pilot_status", "airbase_status",
+                         "military_killed", "military_injured", "casualty_details",
+                         "pilot_status", "airbase_status",
                          "active_alerts", "sources_used"],
             "additionalProperties": False,
         },
@@ -104,17 +118,31 @@ You will receive news article headlines AND (when available) full article text f
    - Israeli strikes on Iran/Lebanon/Gaza should be mentioned in key_developments but NOT in the strikes table.
    - Each row in strikes = one confirmed strike event or wave. Use details from the articles.
    - origin = who launched it (e.g., "איראן", "חיזבאללה", "חות'ים", "חמאס")
-   - If articles report a total number of missiles/rockets (e.g., "Iran launched 150 missiles"), use that for total_launches.
-   - If articles report interceptions (e.g., "most were intercepted", "IDF intercepted 130"), use the stated number for total_intercepted.
+   - total_launches = number of INCOMING projectiles toward Israel (missiles, rockets, drones).
+   - If articles report interceptions (e.g., "most were intercepted", "IDF intercepted 130"), use the stated number.
    - If multiple articles give DIFFERENT numbers for the same event, use the number from the most authoritative source (IDF > Reuters/AP > others).
 
-3. CASUALTIES IN ISRAEL (killed/injured):
+   ⚠️ COMMON CONFUSION — READ CAREFULLY:
+   - "200 Israeli aircraft" or "200 IAF jets" = Israeli planes striking Iran. This is NOT 200 launches AT Israel. Do NOT use this number for total_launches.
+   - "500 targets struck in Iran" = Israeli/US offensive strikes. This is NOT incoming fire on Israel.
+   - total_launches must ONLY reflect projectiles FIRED AT Israel (e.g., "Iran fired 40 ballistic missiles at Israel" → total_launches=40).
+   - If no specific count of incoming projectiles is stated, use 0 and describe what you know in the strikes table rows.
+
+3. CASUALTIES IN ISRAEL (killed/injured + casualty_details):
    - ONLY count casualties/injuries INSIDE Israel from attacks ON Israel.
    - Do NOT count casualties in Iran, Lebanon, Gaza, or other countries.
    - ONLY use numbers explicitly stated in articles. "casualties reported" without a number = 0.
    - Default: civilian. Only classify as military if article explicitly says soldier/military/IDF.
    - If one article says "1 killed" and another says "2 killed" about different events, ADD them.
    - If they describe the SAME event, use the higher/more recent number.
+
+   CASUALTY DETAILS (casualty_details):
+   - For each identified casualty or group, create an entry with any available metadata.
+   - description: Hebrew text with whatever identifying info is available — name, age, gender.
+     Examples: "אישה בת 40", "גבר בשנות ה-30", "עתי כהן אנג'ל, 74", "3 פצועים קל"
+   - location: city/area in Hebrew (e.g., "תל אביב", "רמת גן", "חיפה")
+   - status: "נהרג/ה" or "נפצע/ה קל/בינוני/קשה" or "נפצע/ה"
+   - Only include details that are EXPLICITLY stated. Do not guess demographics.
 
 4. PILOT STATUS (pilot_status):
    - Specifically check for ANY mention of Israeli Air Force / IAF / חה"א pilots, aircrew.
@@ -258,14 +286,15 @@ def analyze_all(articles: list[dict]) -> dict | None:
         f"Here are {len(selected)} news articles from the last 12 hours. "
         "Analyze them and produce a structured security brief.\n\n"
         "IMPORTANT REMINDERS:\n"
-        "- STRIKES TABLE: Only count strikes/launches directed AT Israel (not Israeli strikes on Iran/others).\n"
-        "- CASUALTIES: Report casualty numbers found in article text. Search ALL articles carefully for phrases like "
-        "'killed', 'dead', 'wounded', 'injured', 'hurt', and specific numbers. "
-        "If article A says '1 killed' and article B says '20 wounded' about different events, ADD them together. "
-        "If they describe the SAME event, use the highest number reported.\n"
-        "- STATUS: If there are multi-wave attacks (more than 5 waves) with casualties, use קריטי.\n"
-        "- HEADLINES: Even short headlines often contain numbers (e.g., 'Iran attack kills 2, wounds 20'). "
-        "These counts are valid — extract them.\n\n"
+        "- LAUNCHES: total_launches = ONLY projectiles/missiles fired AT Israel. "
+        "'200 Israeli jets' or '500 targets in Iran' are ISRAELI OFFENSIVE operations — do NOT count as launches AT Israel. "
+        "If articles say 'Iran fired 40 missiles at Israel', then total_launches=40.\n"
+        "- STRIKES TABLE: Only attacks directed AT Israel (not Israeli strikes on Iran/others).\n"
+        "- CASUALTIES: Search ALL articles for 'killed', 'dead', 'wounded', 'injured' WITH numbers. "
+        "If article A says '1 killed' and article B says '20 wounded' about different events, ADD them. "
+        "Same event → use highest number. Also extract identity details (name, age, gender, city) into casualty_details.\n"
+        "- STATUS: Multi-wave attacks with casualties → קריטי.\n"
+        "- HEADLINES: Short headlines often contain key numbers — extract them.\n\n"
         + articles_text
     )
 
@@ -298,6 +327,7 @@ def _quiet_day_report() -> dict:
         "civilian_injured": 0,
         "military_killed": 0,
         "military_injured": 0,
+        "casualty_details": [],
         "pilot_status": "לא דווח על פגיעה בטייסי חיל האוויר.",
         "airbase_status": "לא דווח על פגיעה בבסיסי חיל האוויר.",
         "active_alerts": [],
