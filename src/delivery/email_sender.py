@@ -14,12 +14,12 @@ from src.config import (
 logger = logging.getLogger(__name__)
 
 
-def send_report(subject: str, body: str) -> bool:
+def send_report(subject: str, body_html: str) -> bool:
     """Send the report email via Resend API.
 
     Args:
         subject: Email subject line (Hebrew).
-        body: Plain text email body (Hebrew).
+        body_html: HTML email body.
 
     Returns:
         True if sent successfully, False otherwise.
@@ -36,7 +36,7 @@ def send_report(subject: str, body: str) -> bool:
                 "from": f"Daily Brief <{SENDER_EMAIL}>",
                 "to": [RECIPIENT_EMAIL],
                 "subject": subject,
-                "text": body,
+                "html": body_html,
             })
             logger.info("Email sent successfully to %s (id: %s)", RECIPIENT_EMAIL, result.get("id", "?"))
             return True

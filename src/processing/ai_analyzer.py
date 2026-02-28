@@ -58,6 +58,7 @@ REPORT_SCHEMA = {
                 "military_killed": {"type": "integer"},
                 "military_injured": {"type": "integer"},
                 "pilot_status": {"type": "string"},
+                "airbase_status": {"type": "string"},
                 "active_alerts": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -69,7 +70,7 @@ REPORT_SCHEMA = {
             },
             "required": ["status", "total_launches", "total_intercepted", "total_impact",
                          "strikes", "killed", "injured", "civilian_killed", "civilian_injured",
-                         "military_killed", "military_injured", "pilot_status",
+                         "military_killed", "military_injured", "pilot_status", "airbase_status",
                          "active_alerts", "sources_used"],
             "additionalProperties": False,
         },
@@ -82,24 +83,31 @@ SYSTEM_PROMPT = """You are a military intelligence analyst producing a daily sec
 
 You will receive a batch of news article headlines and summaries from the last 12 hours. Your job is to:
 
-1. IDENTIFY all relevant strike events on Israel (missile, rocket, drone, ballistic) from the articles.
-2. DEDUPLICATE: Multiple articles may report the same event. Count each real-world event only once.
+1. IDENTIFY ALL strike/attack events targeting Israel (missile, rocket, drone, ballistic, cruise). Be THOROUGH — if multiple headlines mention different strikes, count each unique event. Headlines like "Iran launches missiles at Israel" and "Ballistic missiles target Tel Aviv" may describe the same event OR different waves — use timestamps and locations to distinguish.
+2. DEDUPLICATE carefully: Only merge events that clearly describe the SAME strike (same time, same location, same weapon type). When in doubt, list them separately.
 3. EXTRACT casualty numbers. When multiple sources report different numbers, use the HIGHEST credible report.
 4. PAY SPECIAL ATTENTION to any mention of Israeli Air Force (IAF/חה"א) pilots, aircrew, or air force personnel being harmed, injured, or killed.
-5. IDENTIFY any active alerts or sirens mentioned.
-6. DETERMINE the overall threat status:
+5. PAY SPECIAL ATTENTION to any mention of Israeli air bases (Nevatim, Ramon, Ramat David, Hatzerim, Palmachim, Hatzor, Ovda, Sde Dov, Tel Nof) being targeted, hit, damaged, or attacked.
+6. IDENTIFY any active alerts or sirens mentioned.
+7. DETERMINE the overall threat status:
    - שקט (CALM): No strikes, no casualties, no active alerts
    - מוגבר (ELEVATED): Diplomatic tensions, military movements, minor incidents, rocket attacks from Gaza/Lebanon
    - גבוה (HIGH): Confirmed strikes from Iran/proxies, casualties reported, active alerts
    - קריטי (CRITICAL): Major multi-wave Iranian attack, significant casualties, ongoing alerts
+
+IMPORTANT — EXTRACTION GUIDANCE:
+- Many headlines describe the SAME event from different angles. A "US and Israel strike Iran" article and a "Iran retaliates against Israel" article describe TWO different directions of attack — extract both.
+- When a headline says "X missiles launched", extract that number even if other details are sparse.
+- If an article mentions "multiple waves" or "barrage of rockets", try to estimate a count from context. If no count is given, use the total from the article with the highest specificity.
+- Every unique location mentioned as a target should appear in the strikes table.
 
 RULES:
 - Extract ONLY facts explicitly stated in the articles. Never speculate.
 - Times should be in Israel time (IST/IDT) in HH:MM format if available, or "—" if unknown.
 - weapon_type in Hebrew: בליסטי, שיוט, רקטה, מל"ט, or the original term.
 - result in Hebrew: יורט, פגיעה, לא ידוע.
-- pilot_status in Hebrew. Default: "לא דווח על פגיעה בטייסי חיל האוויר."
-- If there IS news about pilots, provide details in Hebrew.
+- pilot_status in Hebrew. Default: "לא דווח על פגיעה בטייסי חיל האוויר." If there IS news about pilots, provide details.
+- airbase_status in Hebrew. Default: "לא דווח על פגיעה בבסיסי חיל האוויר." If there IS news about air bases being targeted/hit, provide details.
 - ALL text values in Hebrew except source names (which stay in English).
 - If no relevant strike/conflict events are found, return status שקט with all zeros."""
 
@@ -133,9 +141,9 @@ def _format_articles_for_prompt(articles: list[dict]) -> str:
         published = article.get("published", "")
         summary = article.get("summary", "")
 
-        # Truncate summary to ~200 chars to keep prompt size reasonable
-        if summary and len(summary) > 200:
-            summary = summary[:200] + "..."
+        # Allow longer summaries for better extraction
+        if summary and len(summary) > 400:
+            summary = summary[:400] + "..."
 
         entry = f"[{i}] ({source}) {title}"
         if published:
@@ -169,7 +177,9 @@ def analyze_all(articles: list[dict]) -> dict | None:
     articles_text = _format_articles_for_prompt(articles)
     user_content = (
         f"Here are {len(articles)} news articles from the last 12 hours. "
-        "Analyze them and produce a structured security brief:\n\n"
+        "Analyze them and produce a structured security brief.\n"
+        "IMPORTANT: Be thorough. Extract ALL strike events, ALL casualty reports, "
+        "and ANY mention of pilots or air bases. Do not under-count.\n\n"
         + articles_text
     )
 
@@ -203,6 +213,7 @@ def _quiet_day_report() -> dict:
         "military_killed": 0,
         "military_injured": 0,
         "pilot_status": "לא דווח על פגיעה בטייסי חיל האוויר.",
+        "airbase_status": "לא דווח על פגיעה בבסיסי חיל האוויר.",
         "active_alerts": [],
         "sources_used": [],
     }

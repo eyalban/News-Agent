@@ -11,26 +11,38 @@ HEBREW_MONTHS = {
     9: "ספטמבר", 10: "אוקטובר", 11: "נובמבר", 12: "דצמבר",
 }
 
-# Sources that were checked (shown on quiet days)
 DEFAULT_SOURCES = [
     "IDF Spokesperson", "Times of Israel", "Jerusalem Post",
     "Ynetnews", "Reuters", "BBC", "Al Jazeera",
 ]
 
+STATUS_COLORS = {
+    "שקט": "#2e7d32",      # green
+    "מוגבר": "#f57f17",    # amber
+    "גבוה": "#e65100",     # orange
+    "קריטי": "#b71c1c",    # red
+}
+
+STATUS_EMOJI = {
+    "שקט": "🟢",
+    "מוגבר": "🟡",
+    "גבוה": "🟠",
+    "קריטי": "🔴",
+}
+
 
 def format_report(report: dict, start_time: datetime, end_time: datetime) -> str:
-    """Format a synthesized report dict into the Hebrew Format A text.
+    """Format a synthesized report dict into an HTML email.
 
     Args:
-        report: Synthesized report dict from ai_analyzer.synthesize_report.
+        report: Synthesized report dict from ai_analyzer.
         start_time: UTC start of lookback window.
         end_time: UTC end of lookback window.
 
     Returns:
-        Formatted report string in Hebrew.
+        HTML string for the email body.
     """
     boston_tz = pytz.timezone(BOSTON_TIMEZONE)
-    israel_tz = pytz.timezone(ISRAEL_TIMEZONE)
 
     now_boston = end_time.astimezone(boston_tz)
     start_boston = start_time.astimezone(boston_tz)
@@ -41,39 +53,47 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
         f"{now_boston.strftime('%d/%m %H:%M')} (שעון בוסטון)"
     )
 
-    lines = []
-    lines.append("=" * 44)
-    lines.append(f"  תדריך ביטחוני יומי | {date_str}")
-    lines.append(f"  תקופה: {period_str}")
-    lines.append("=" * 44)
-    lines.append("")
-    lines.append(f"מצב: {report['status']}")
-    lines.append("")
+    status = report.get("status", "שקט")
+    status_color = STATUS_COLORS.get(status, "#333")
+    status_emoji = STATUS_EMOJI.get(status, "")
 
-    # --- Strikes ---
-    lines.append("--- תקיפות (12 שעות אחרונות) ---")
+    # --- Build strikes table ---
     strikes = report.get("strikes", [])
     total_launches = report.get("total_launches", 0)
     total_intercepted = report.get("total_intercepted", 0)
     total_impact = report.get("total_impact", 0)
 
     if total_launches == 0 and not strikes:
-        lines.append("לא דווחו תקיפות בתקופה זו.")
+        strikes_html = '<p style="color:#555;">לא דווחו תקיפות בתקופה זו.</p>'
     else:
-        lines.append(f"סה\"כ: {total_launches} שיגורים | {total_intercepted} יורטו | {total_impact} פגיעות")
-        lines.append("")
+        strikes_html = f'<p><strong>סה"כ: {total_launches} שיגורים &nbsp;|&nbsp; {total_intercepted} יורטו &nbsp;|&nbsp; {total_impact} פגיעות</strong></p>'
         if strikes:
-            lines.append(f"{'שעה(IL)':<10}{'סוג':<11}{'יעד':<14}{'תוצאה'}")
+            rows = ""
             for s in strikes:
                 time_il = s.get("time_israel", "—") or "—"
                 wtype = s.get("weapon_type", "—") or "—"
                 target = s.get("target_location", "—") or "—"
                 result = s.get("result", "—") or "—"
-                lines.append(f"{time_il:<10}{wtype:<11}{target:<14}{result}")
-    lines.append("")
+                result_color = "#b71c1c" if result == "פגיעה" else ("#2e7d32" if result == "יורט" else "#555")
+                rows += f"""<tr>
+                    <td style="padding:4px 10px;border-bottom:1px solid #eee;">{time_il}</td>
+                    <td style="padding:4px 10px;border-bottom:1px solid #eee;">{wtype}</td>
+                    <td style="padding:4px 10px;border-bottom:1px solid #eee;">{target}</td>
+                    <td style="padding:4px 10px;border-bottom:1px solid #eee;color:{result_color};font-weight:bold;">{result}</td>
+                </tr>"""
+            strikes_html += f"""<table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:14px;">
+                <thead>
+                    <tr style="background:#f5f5f5;">
+                        <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #ccc;">שעה (IL)</th>
+                        <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #ccc;">סוג</th>
+                        <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #ccc;">יעד</th>
+                        <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #ccc;">תוצאה</th>
+                    </tr>
+                </thead>
+                <tbody>{rows}</tbody>
+            </table>"""
 
     # --- Casualties ---
-    lines.append("--- נפגעים ---")
     killed = report.get("killed", 0)
     injured = report.get("injured", 0)
     civ_killed = report.get("civilian_killed", 0)
@@ -82,56 +102,130 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
     mil_injured = report.get("military_injured", 0)
 
     if killed == 0 and injured == 0:
-        lines.append("לא דווחו נפגעים בתקופה זו.")
+        casualties_html = '<p style="color:#555;">לא דווחו נפגעים בתקופה זו.</p>'
     else:
-        lines.append(f"הרוגים: {killed} | פצועים: {injured}")
-        lines.append(f"אזרחים: {civ_killed} הרוגים, {civ_injured} פצועים | צבאיים: {mil_killed} הרוגים, {mil_injured} פצועים")
-    lines.append("")
+        casualties_html = f"""<table style="border-collapse:collapse;font-size:14px;margin-top:4px;">
+            <tr>
+                <td style="padding:3px 12px;"></td>
+                <td style="padding:3px 12px;font-weight:bold;text-align:center;">הרוגים</td>
+                <td style="padding:3px 12px;font-weight:bold;text-align:center;">פצועים</td>
+            </tr>
+            <tr style="background:#f5f5f5;">
+                <td style="padding:3px 12px;font-weight:bold;">אזרחים</td>
+                <td style="padding:3px 12px;text-align:center;">{civ_killed}</td>
+                <td style="padding:3px 12px;text-align:center;">{civ_injured}</td>
+            </tr>
+            <tr>
+                <td style="padding:3px 12px;font-weight:bold;">צבאיים</td>
+                <td style="padding:3px 12px;text-align:center;">{mil_killed}</td>
+                <td style="padding:3px 12px;text-align:center;">{mil_injured}</td>
+            </tr>
+            <tr style="border-top:2px solid #ccc;">
+                <td style="padding:3px 12px;font-weight:bold;">סה"כ</td>
+                <td style="padding:3px 12px;text-align:center;font-weight:bold;">{killed}</td>
+                <td style="padding:3px 12px;text-align:center;font-weight:bold;">{injured}</td>
+            </tr>
+        </table>"""
 
-    # --- IAF Pilot Status ---
-    lines.append("--- מצב טייסי חה\"א ---")
+    # --- Pilot status ---
     pilot_status = report.get("pilot_status", "לא דווח על פגיעה בטייסי חיל האוויר.")
-    lines.append(pilot_status)
-    lines.append("")
+    pilot_is_clear = "לא דווח" in pilot_status
+    pilot_icon = "✅" if pilot_is_clear else "⚠️"
+    pilot_color = "#2e7d32" if pilot_is_clear else "#b71c1c"
 
-    # --- Active Alerts ---
-    lines.append("--- התרעות פעילות ---")
+    # --- Air base status ---
+    airbase_status = report.get("airbase_status", "לא דווח על פגיעה בבסיסי חיל האוויר.")
+    airbase_is_clear = "לא דווח" in airbase_status
+    airbase_icon = "✅" if airbase_is_clear else "⚠️"
+    airbase_color = "#2e7d32" if airbase_is_clear else "#b71c1c"
+
+    # --- Alerts ---
     alerts = report.get("active_alerts", [])
     if not alerts:
-        lines.append("אין התרעות בזמן הדוח.")
+        alerts_html = '<p style="color:#555;">אין התרעות בזמן הדוח.</p>'
     else:
+        alerts_html = "<ul style='margin:4px 0;padding-right:20px;'>"
         for alert in alerts:
-            lines.append(f"• {alert}")
-    lines.append("")
+            alerts_html += f"<li>{alert}</li>"
+        alerts_html += "</ul>"
 
     # --- Sources ---
-    lines.append("--- מקורות ---")
     sources = report.get("sources_used", [])
     if sources:
-        lines.append("• " + "  • ".join(sources))
+        sources_html = " &bull; ".join(sources)
     else:
-        lines.append("מקורות שנבדקו: " + ", ".join(DEFAULT_SOURCES) + ".")
-        lines.append("לא נמצאו דיווחים רלוונטיים.")
-    lines.append("")
+        sources_html = "מקורות שנבדקו: " + ", ".join(DEFAULT_SOURCES) + ". לא נמצאו דיווחים רלוונטיים."
 
-    lines.append("=" * 44)
-    lines.append("         סוף תדריך")
-    lines.append("=" * 44)
+    # --- Assemble full HTML ---
+    html = f"""<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f0f0f0;">
+<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
 
-    return "\n".join(lines)
+    <!-- Header -->
+    <div style="background:#1a237e;color:#fff;padding:16px 24px;">
+        <h1 style="margin:0;font-size:20px;font-weight:bold;">🛡️ תדריך ביטחוני יומי</h1>
+        <p style="margin:4px 0 0;font-size:13px;opacity:0.85;">{date_str} &nbsp;|&nbsp; תקופה: {period_str}</p>
+    </div>
+
+    <!-- Status banner -->
+    <div style="background:{status_color};color:#fff;padding:12px 24px;font-size:18px;font-weight:bold;">
+        {status_emoji} מצב: {status}
+    </div>
+
+    <div style="padding:20px 24px;">
+
+        <!-- Strikes -->
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;margin-top:0;">
+            🚀 תקיפות (12 שעות אחרונות)
+        </h2>
+        {strikes_html}
+
+        <!-- Casualties -->
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+            🏥 נפגעים
+        </h2>
+        {casualties_html}
+
+        <!-- Pilot Status -->
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+            ✈️ מצב טייסי חה"א
+        </h2>
+        <p style="color:{pilot_color};font-weight:bold;font-size:15px;">
+            {pilot_icon} {pilot_status}
+        </p>
+
+        <!-- Air Base Status -->
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+            🛩️ מצב בסיסי חה"א
+        </h2>
+        <p style="color:{airbase_color};font-weight:bold;font-size:15px;">
+            {airbase_icon} {airbase_status}
+        </p>
+
+        <!-- Active Alerts -->
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+            🚨 התרעות פעילות
+        </h2>
+        {alerts_html}
+
+    </div>
+
+    <!-- Sources footer -->
+    <div style="background:#f5f5f5;padding:12px 24px;font-size:12px;color:#777;border-top:1px solid #e0e0e0;">
+        <strong>מקורות:</strong> {sources_html}
+    </div>
+
+</div>
+</body>
+</html>"""
+
+    return html
 
 
 def format_fallback_report(articles: list[dict], start_time: datetime, end_time: datetime) -> str:
-    """Format a fallback report with raw headlines when AI is unavailable.
-
-    Args:
-        articles: List of relevant article dicts.
-        start_time: UTC start of lookback window.
-        end_time: UTC end of lookback window.
-
-    Returns:
-        Formatted fallback report string.
-    """
+    """Format a fallback HTML report with raw headlines when AI is unavailable."""
     boston_tz = pytz.timezone(BOSTON_TIMEZONE)
     now_boston = end_time.astimezone(boston_tz)
     start_boston = start_time.astimezone(boston_tz)
@@ -142,29 +236,41 @@ def format_fallback_report(articles: list[dict], start_time: datetime, end_time:
         f"{now_boston.strftime('%d/%m %H:%M')} (שעון בוסטון)"
     )
 
-    lines = []
-    lines.append("=" * 44)
-    lines.append(f"  תדריך ביטחוני יומי | {date_str}")
-    lines.append(f"  תקופה: {period_str}")
-    lines.append("=" * 44)
-    lines.append("")
-    lines.append("⚠ סיכום AI לא זמין — כותרות גולמיות בלבד ⚠")
-    lines.append("")
-
     if not articles:
-        lines.append("לא נמצאו כתבות רלוונטיות בתקופה זו.")
+        articles_html = '<p style="color:#555;">לא נמצאו כתבות רלוונטיות בתקופה זו.</p>'
     else:
-        for i, article in enumerate(articles[:30], 1):
+        items = ""
+        for article in articles[:30]:
             source = article.get("source", "")
             title = article.get("title", "")
             link = article.get("link", "")
-            lines.append(f"{i}. [{source}] {title}")
             if link:
-                lines.append(f"   {link}")
-            lines.append("")
+                items += f'<li style="margin-bottom:6px;"><strong>[{source}]</strong> <a href="{link}">{title}</a></li>'
+            else:
+                items += f'<li style="margin-bottom:6px;"><strong>[{source}]</strong> {title}</li>'
+        articles_html = f'<ol style="padding-right:20px;">{items}</ol>'
 
-    lines.append("=" * 44)
-    lines.append("         סוף תדריך")
-    lines.append("=" * 44)
+    html = f"""<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f0f0f0;">
+<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
 
-    return "\n".join(lines)
+    <div style="background:#1a237e;color:#fff;padding:16px 24px;">
+        <h1 style="margin:0;font-size:20px;">🛡️ תדריך ביטחוני יומי</h1>
+        <p style="margin:4px 0 0;font-size:13px;opacity:0.85;">{date_str} &nbsp;|&nbsp; {period_str}</p>
+    </div>
+
+    <div style="background:#f57f17;color:#fff;padding:12px 24px;font-size:16px;font-weight:bold;">
+        ⚠️ סיכום AI לא זמין — כותרות גולמיות בלבד
+    </div>
+
+    <div style="padding:20px 24px;">
+        {articles_html}
+    </div>
+
+</div>
+</body>
+</html>"""
+
+    return html

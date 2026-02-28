@@ -23,6 +23,7 @@ GOOGLE_NEWS_QUERIES = [
     "IDF spokesperson Iran when:12h",
     "Israel air defense Iron Dome Arrow when:12h",
     "Israel home front command alert siren when:12h",
+    "Nevatim OR Ramon OR Ramat David air base Israel when:12h",
 ]
 GOOGLE_NEWS_SITE_QUERIES = [
     "Iran Israel when:12h site:reuters.com",
@@ -70,6 +71,8 @@ HIGH_PRIORITY = [
     "ballistic missile israel",
     "iron dome activation",
     "israeli pilot",
+    "nevatim", "ramon air base", "ramat david",
+    "hatzerim", "palmachim", "tel nof",
 ]
 
 # --- OpenAI ---
