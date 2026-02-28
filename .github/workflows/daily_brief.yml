@@ -1,0 +1,35 @@
+name: Daily Security Brief
+
+on:
+  schedule:
+    # 11:00 UTC = 7:00 AM EDT (Mar-Nov)
+    - cron: '0 11 * * *'
+    # 12:00 UTC = 7:00 AM EST (Nov-Mar)
+    - cron: '0 12 * * *'
+  workflow_dispatch: {}  # Allow manual trigger for testing
+
+jobs:
+  send-brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run briefing agent
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+        run: python -m src.main

@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.newscatcherapi.com)",
+      "Bash(python -m py_compile src/config.py)",
+      "Bash(python -m py_compile src/sources/google_news_rss.py)",
+      "Bash(python -m py_compile src/sources/rss_feeds.py)",
+      "Bash(python -m py_compile src/processing/relevance_filter.py)",
+      "Bash(python -m py_compile src/processing/deduplicator.py)",
+      "Bash(python -m py_compile src/processing/ai_analyzer.py)",
+      "Bash(python -m py_compile src/report/formatter.py)",
+      "Bash(python -m py_compile src/delivery/email_sender.py)",
+      "Bash(python -m py_compile src/main.py)",
+      "Bash(pip install -r requirements.txt)",
+      "Bash(python -c \":*)",
+      "WebFetch(domain:www.israelnationalnews.com)",
+      "WebFetch(domain:www.jpost.com)",
+      "WebFetch(domain:rss.feedspot.com)",
+      "Bash(git init)",
+      "Bash(git add -A)"
+    ]
+  }
+}
