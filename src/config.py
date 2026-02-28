@@ -102,7 +102,7 @@ HIGH_PRIORITY = [
 
 # --- OpenAI ---
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-4o-mini"
+OPENAI_MODEL = "gpt-4o"
 OPENAI_MAX_TOKENS = 8000
 OPENAI_TEMPERATURE = 0.1
 

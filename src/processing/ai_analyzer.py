@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # Maximum articles to send to OpenAI (keeps within token limits)
-MAX_ARTICLES_FOR_AI = 60
+MAX_ARTICLES_FOR_AI = 80
 
 # --- JSON Schema for Structured Output ---
 
@@ -191,6 +191,32 @@ def _format_articles_for_prompt(articles: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _select_articles_for_ai(articles: list[dict], max_count: int) -> list[dict]:
+    """Select articles for AI analysis, balancing enriched content and headline diversity.
+
+    Strategy:
+    - First: all articles with full content (enriched from direct feeds)
+    - Then: remaining articles sorted by source priority, to fill up to max_count
+    This ensures the AI gets both detailed article text AND broad headline coverage.
+    """
+    # Split into enriched (>200 chars summary) and headline-only
+    enriched = []
+    headlines = []
+    for article in articles:
+        summary = article.get("summary", "")
+        if len(summary) > 200:
+            enriched.append(article)
+        else:
+            headlines.append(article)
+
+    selected = enriched[:max_count]
+    remaining_slots = max_count - len(selected)
+    if remaining_slots > 0:
+        selected.extend(headlines[:remaining_slots])
+
+    return selected
+
+
 def analyze_all(articles: list[dict]) -> dict | None:
     """Analyze all articles in a SINGLE API call and return the synthesized report.
 
@@ -203,22 +229,25 @@ def analyze_all(articles: list[dict]) -> dict | None:
         logger.info("No articles to analyze, returning quiet-day report")
         return _quiet_day_report()
 
-    # Cap articles to avoid exceeding token limits
-    if len(articles) > MAX_ARTICLES_FOR_AI:
-        logger.info("Capping articles from %d to %d for AI analysis", len(articles), MAX_ARTICLES_FOR_AI)
-        articles = articles[:MAX_ARTICLES_FOR_AI]
+    # Smart selection: prioritize enriched articles, then fill with headlines
+    selected = _select_articles_for_ai(articles, MAX_ARTICLES_FOR_AI)
+    enriched_count = sum(1 for a in selected if len(a.get("summary", "")) > 200)
+    logger.info("Sending %d articles to OpenAI (%d with full text, %d headlines only)...",
+                len(selected), enriched_count, len(selected) - enriched_count)
 
-    logger.info("Sending %d articles to OpenAI in a single batch call...", len(articles))
-
-    articles_text = _format_articles_for_prompt(articles)
+    articles_text = _format_articles_for_prompt(selected)
     user_content = (
-        f"Here are {len(articles)} news articles from the last 12 hours. "
+        f"Here are {len(selected)} news articles from the last 12 hours. "
         "Analyze them and produce a structured security brief.\n\n"
-        "REMINDERS:\n"
-        "- Only count strikes/launches directed AT Israel (not Israeli strikes on Iran).\n"
-        "- Only report casualty numbers you find explicitly stated in the article text.\n"
-        "- If you cannot find a specific number, use 0 — NEVER guess.\n"
-        "- Only classify casualties as military if the text explicitly says so.\n\n"
+        "IMPORTANT REMINDERS:\n"
+        "- STRIKES TABLE: Only count strikes/launches directed AT Israel (not Israeli strikes on Iran/others).\n"
+        "- CASUALTIES: Report casualty numbers found in article text. Search ALL articles carefully for phrases like "
+        "'killed', 'dead', 'wounded', 'injured', 'hurt', and specific numbers. "
+        "If article A says '1 killed' and article B says '20 wounded' about different events, ADD them together. "
+        "If they describe the SAME event, use the highest number reported.\n"
+        "- STATUS: If there are multi-wave attacks (more than 5 waves) with casualties, use קריטי.\n"
+        "- HEADLINES: Even short headlines often contain numbers (e.g., 'Iran attack kills 2, wounds 20'). "
+        "These counts are valid — extract them.\n\n"
         + articles_text
     )
 
