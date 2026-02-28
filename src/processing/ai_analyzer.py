@@ -126,7 +126,7 @@ You will receive news article headlines AND (when available) full article text f
    - "200 Israeli aircraft" or "200 IAF jets" = Israeli planes striking Iran. NOT launches AT Israel.
    - "500 targets struck in Iran" = Israeli/US offensive. NOT incoming fire on Israel.
    - total_launches = ONLY projectiles INCOMING toward Israel.
-   - total_intercepted = ONLY if a specific interception count is stated. "Most intercepted" without a number = 0.
+   - total_intercepted: Use the stated interception count if available (e.g., "IDF intercepted 90" → 90). If ONLY vague phrases like "most were intercepted" appear with NO number, estimate as ~80% of total_launches. Only use 0 if NO interception info appears at all.
    - total_impact = ONLY impacts explicitly reported (e.g., "missile hit a building in Tel Aviv" = at least 1 impact). Do NOT set total_impact = total_launches. If no impact count stated, count confirmed hits from articles.
    - RULE: total_impact + total_intercepted ≤ total_launches. If total_intercepted=0 (unknown), total_impact should still reflect ONLY confirmed hits, NOT all launches.
 
@@ -137,6 +137,7 @@ You will receive news article headlines AND (when available) full article text f
    - Default: civilian. Only classify as military if article explicitly says soldier/military/IDF.
    - If one article says "1 killed" and another says "2 killed" about different events, ADD them.
    - If they describe the SAME event, use the higher/more recent number.
+   - IMPORTANT: Later articles often have updated totals. If one article says "1 killed" (early report) and a later article says "28 killed" (cumulative update), use the HIGHER number — it's a running total, not a separate event.
 
    CASUALTY DETAILS (casualty_details):
    - For each identified casualty or group, create an entry with any available metadata.
