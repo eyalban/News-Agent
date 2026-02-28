@@ -66,7 +66,8 @@ def run(force: bool = False):
     logger.info("--- FETCH PHASE ---")
     google_articles = fetch_google_news(start_time, end_time)
     direct_articles = fetch_direct_feeds(start_time, end_time)
-    all_articles = google_articles + direct_articles
+    # Direct feeds first — they have real URLs for content enrichment
+    all_articles = direct_articles + google_articles
     logger.info("Total articles fetched: %d", len(all_articles))
 
     # Step 4: Filter and deduplicate
