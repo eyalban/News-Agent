@@ -17,75 +17,12 @@ logger = logging.getLogger(__name__)
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# --- JSON Schemas for Structured Outputs ---
+# Maximum articles to send to OpenAI (keeps within token limits)
+MAX_ARTICLES_FOR_AI = 60
 
-ARTICLE_ANALYSIS_SCHEMA = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "article_analysis",
-        "strict": True,
-        "schema": {
-            "type": "object",
-            "properties": {
-                "is_relevant": {"type": "boolean"},
-                "category": {
-                    "type": "string",
-                    "enum": ["strike", "casualties", "pilot_status", "alert",
-                             "diplomatic", "military_movement", "other"],
-                },
-                "strikes": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "time_israel": {"type": ["string", "null"]},
-                            "weapon_type": {"type": ["string", "null"]},
-                            "target_location": {"type": ["string", "null"]},
-                            "result": {"type": ["string", "null"]},
-                            "launched_by": {"type": ["string", "null"]},
-                        },
-                        "required": ["time_israel", "weapon_type", "target_location", "result", "launched_by"],
-                        "additionalProperties": False,
-                    },
-                },
-                "casualties": {
-                    "type": ["object", "null"],
-                    "properties": {
-                        "killed": {"type": "integer"},
-                        "injured": {"type": "integer"},
-                        "civilian_killed": {"type": "integer"},
-                        "civilian_injured": {"type": "integer"},
-                        "military_killed": {"type": "integer"},
-                        "military_injured": {"type": "integer"},
-                    },
-                    "required": ["killed", "injured", "civilian_killed", "civilian_injured",
-                                 "military_killed", "military_injured"],
-                    "additionalProperties": False,
-                },
-                "pilot_report": {
-                    "type": ["object", "null"],
-                    "properties": {
-                        "has_pilot_news": {"type": "boolean"},
-                        "details": {"type": ["string", "null"]},
-                    },
-                    "required": ["has_pilot_news", "details"],
-                    "additionalProperties": False,
-                },
-                "active_alerts": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                },
-                "summary_sentence": {"type": "string"},
-                "source_name": {"type": "string"},
-            },
-            "required": ["is_relevant", "category", "strikes", "casualties",
-                         "pilot_report", "active_alerts", "summary_sentence", "source_name"],
-            "additionalProperties": False,
-        },
-    },
-}
+# --- JSON Schema for Structured Output ---
 
-SYNTHESIS_SCHEMA = {
+REPORT_SCHEMA = {
     "type": "json_schema",
     "json_schema": {
         "name": "report_synthesis",
@@ -139,37 +76,32 @@ SYNTHESIS_SCHEMA = {
     },
 }
 
-# --- System Prompts ---
+# --- System Prompt ---
 
-EXTRACTION_SYSTEM_PROMPT = """You are a military intelligence analyst extracting structured data from news articles about the Iran-Israel conflict.
+SYSTEM_PROMPT = """You are a military intelligence analyst producing a daily security brief about the Iran-Israel conflict.
+
+You will receive a batch of news article headlines and summaries from the last 12 hours. Your job is to:
+
+1. IDENTIFY all relevant strike events on Israel (missile, rocket, drone, ballistic) from the articles.
+2. DEDUPLICATE: Multiple articles may report the same event. Count each real-world event only once.
+3. EXTRACT casualty numbers. When multiple sources report different numbers, use the HIGHEST credible report.
+4. PAY SPECIAL ATTENTION to any mention of Israeli Air Force (IAF/חה"א) pilots, aircrew, or air force personnel being harmed, injured, or killed.
+5. IDENTIFY any active alerts or sirens mentioned.
+6. DETERMINE the overall threat status:
+   - שקט (CALM): No strikes, no casualties, no active alerts
+   - מוגבר (ELEVATED): Diplomatic tensions, military movements, minor incidents, rocket attacks from Gaza/Lebanon
+   - גבוה (HIGH): Confirmed strikes from Iran/proxies, casualties reported, active alerts
+   - קריטי (CRITICAL): Major multi-wave Iranian attack, significant casualties, ongoing alerts
 
 RULES:
-- Extract ONLY facts explicitly stated in the article. Never speculate or infer.
-- If a piece of information is not mentioned, use null.
-- Times should be in Israel time (IST/IDT) in HH:MM format if available.
-- weapon_type should be one of: בליסטי, שיוט, רקטה, מל"ט, or the original term if unclear.
-- result should be one of: יורט, פגיעה, לא ידוע.
-- Pay special attention to any mention of pilots, aircrew, or air force personnel.
-- For casualties, distinguish between civilian and military where possible. Use 0 if a category is explicitly not mentioned.
-- is_relevant should be false for articles about diplomacy-only or unrelated conflicts."""
-
-SYNTHESIS_SYSTEM_PROMPT = """You are a military intelligence analyst producing a daily security brief synthesis.
-
-You will receive structured extractions from multiple news articles about the Iran-Israel conflict.
-
-Your task:
-1. Aggregate all strike events, removing duplicates (same event reported by multiple sources).
-2. Determine total casualties by taking the HIGHEST reported numbers (not summing duplicates).
-3. Determine the overall threat status:
-   - שקט (CALM): No strikes, no casualties, no active alerts
-   - מוגבר (ELEVATED): Diplomatic tensions, military movements, minor incidents
-   - גבוה (HIGH): Confirmed strikes, casualties reported, active alerts
-   - קריטי (CRITICAL): Major multi-wave attack, significant casualties, ongoing alerts
-4. For pilot_status: Report in Hebrew. Default: "לא דווח על פגיעה בטייסי חיל האוויר." If there IS news about pilots, provide details in Hebrew.
-5. Deduplicate strikes: if multiple sources report the same strike (same time, same location), keep only one entry.
-6. List all source names that contributed information.
-
-Output ALL text values in Hebrew except for source names (which stay in English)."""
+- Extract ONLY facts explicitly stated in the articles. Never speculate.
+- Times should be in Israel time (IST/IDT) in HH:MM format if available, or "—" if unknown.
+- weapon_type in Hebrew: בליסטי, שיוט, רקטה, מל"ט, or the original term.
+- result in Hebrew: יורט, פגיעה, לא ידוע.
+- pilot_status in Hebrew. Default: "לא דווח על פגיעה בטייסי חיל האוויר."
+- If there IS news about pilots, provide details in Hebrew.
+- ALL text values in Hebrew except source names (which stay in English).
+- If no relevant strike/conflict events are found, return status שקט with all zeros."""
 
 
 def _call_openai(messages: list[dict], response_format: dict) -> dict | None:
@@ -192,85 +124,85 @@ def _call_openai(messages: list[dict], response_format: dict) -> dict | None:
     return None
 
 
-def analyze_article(article: dict) -> dict | None:
-    """Extract structured data from a single article using OpenAI.
+def _format_articles_for_prompt(articles: list[dict]) -> str:
+    """Format articles into a compact text block for the AI prompt."""
+    lines = []
+    for i, article in enumerate(articles, 1):
+        source = article.get("source", "Unknown")
+        title = article.get("title", "No title")
+        published = article.get("published", "")
+        summary = article.get("summary", "")
 
-    Returns the parsed analysis dict, or None on failure.
-    """
-    user_content = (
-        f"Source: {article['source']}\n"
-        f"Title: {article['title']}\n"
-        f"Published: {article.get('published', 'unknown')}\n"
-        f"Content: {article.get('summary', 'No content available')}\n"
-    )
+        # Truncate summary to ~200 chars to keep prompt size reasonable
+        if summary and len(summary) > 200:
+            summary = summary[:200] + "..."
 
-    messages = [
-        {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
-    ]
+        entry = f"[{i}] ({source}) {title}"
+        if published:
+            entry += f" | Published: {published}"
+        if summary:
+            entry += f"\n    {summary}"
+        lines.append(entry)
 
-    return _call_openai(messages, ARTICLE_ANALYSIS_SCHEMA)
-
-
-def synthesize_report(analyses: list[dict]) -> dict | None:
-    """Synthesize all article analyses into a single report structure.
-
-    Args:
-        analyses: List of successful article analysis dicts.
-
-    Returns:
-        Synthesized report dict, or None on failure.
-    """
-    if not analyses:
-        # Return a quiet-day report
-        return {
-            "status": "שקט",
-            "total_launches": 0,
-            "total_intercepted": 0,
-            "total_impact": 0,
-            "strikes": [],
-            "killed": 0,
-            "injured": 0,
-            "civilian_killed": 0,
-            "civilian_injured": 0,
-            "military_killed": 0,
-            "military_injured": 0,
-            "pilot_status": "לא דווח על פגיעה בטייסי חיל האוויר.",
-            "active_alerts": [],
-            "sources_used": [],
-        }
-
-    user_content = (
-        "Here are the extracted analyses from all relevant articles. "
-        "Synthesize them into a single report:\n\n"
-        + json.dumps(analyses, ensure_ascii=False, indent=2)
-    )
-
-    messages = [
-        {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
-    ]
-
-    return _call_openai(messages, SYNTHESIS_SCHEMA)
+    return "\n".join(lines)
 
 
 def analyze_all(articles: list[dict]) -> dict | None:
-    """Full analysis pipeline: analyze each article, then synthesize.
+    """Analyze all articles in a SINGLE API call and return the synthesized report.
 
-    Returns the synthesized report dict, or None if synthesis fails.
+    This sends all article titles+summaries to OpenAI in one request,
+    instead of making individual calls per article. Much faster and cheaper.
+
+    Returns the synthesized report dict, or None if analysis fails.
     """
     if not articles:
         logger.info("No articles to analyze, returning quiet-day report")
-        return synthesize_report([])
+        return _quiet_day_report()
 
-    logger.info("Analyzing %d articles with OpenAI...", len(articles))
-    analyses = []
-    for i, article in enumerate(articles):
-        logger.info("  Analyzing article %d/%d: %s", i + 1, len(articles), article["title"][:60])
-        result = analyze_article(article)
-        if result and result.get("is_relevant"):
-            analyses.append(result)
+    # Cap articles to avoid exceeding token limits
+    if len(articles) > MAX_ARTICLES_FOR_AI:
+        logger.info("Capping articles from %d to %d for AI analysis", len(articles), MAX_ARTICLES_FOR_AI)
+        articles = articles[:MAX_ARTICLES_FOR_AI]
 
-    logger.info("OpenAI analysis: %d/%d articles were relevant", len(analyses), len(articles))
-    logger.info("Synthesizing final report...")
-    return synthesize_report(analyses)
+    logger.info("Sending %d articles to OpenAI in a single batch call...", len(articles))
+
+    articles_text = _format_articles_for_prompt(articles)
+    user_content = (
+        f"Here are {len(articles)} news articles from the last 12 hours. "
+        "Analyze them and produce a structured security brief:\n\n"
+        + articles_text
+    )
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+    result = _call_openai(messages, REPORT_SCHEMA)
+
+    if result:
+        logger.info("AI analysis complete. Status: %s", result.get("status", "?"))
+    else:
+        logger.error("AI analysis failed after all retries")
+
+    return result
+
+
+def _quiet_day_report() -> dict:
+    """Return a default quiet-day report structure."""
+    return {
+        "status": "שקט",
+        "total_launches": 0,
+        "total_intercepted": 0,
+        "total_impact": 0,
+        "strikes": [],
+        "killed": 0,
+        "injured": 0,
+        "civilian_killed": 0,
+        "civilian_injured": 0,
+        "military_killed": 0,
+        "military_injured": 0,
+        "pilot_status": "לא דווח על פגיעה בטייסי חיל האוויר.",
+        "active_alerts": [],
+        "sources_used": [],
+    }
