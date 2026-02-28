@@ -68,7 +68,6 @@ def _critical_report() -> dict:
         "military_injured": 2,
         "casualty_details": [
             {"description": "אישה בת 40", "location": "תל אביב", "status": "נהרג/ה"},
-            {"description": "3 פצועים קל", "location": "חיפה", "status": "נפצע/ה קל"},
         ],
         "pilot_status": "טייסי חה\"א השתתפו במבצע. לא דווח על פגיעה.",
         "airbase_status": "בסיסי חה\"א הוזכרו כיעד אך לא דווח על נזק.",
@@ -119,27 +118,45 @@ class TestFormatReport:
         html = format_report(_quiet_report(), *_make_times())
         assert "לא דווחו נפגעים" in html
 
-    def test_casualties_table(self):
+    def test_casualties_headline_format(self):
+        """Casualties show as simple headline: הרוגים: X | פצועים: Y."""
         html = format_report(_critical_report(), *_make_times())
-        assert "הרוגים" in html
-        assert "פצועים" in html
-        assert "אזרחים" in html
-        assert "צבאיים" in html
+        assert "הרוגים: 1" in html
+        assert "פצועים: 20" in html
 
-    def test_casualty_details_rendered(self):
+    def test_casualties_no_grid_table(self):
+        """Old grid table (אזרחים/צבאיים) should no longer appear."""
+        html = format_report(_critical_report(), *_make_times())
+        assert "אזרחים" not in html
+        assert "צבאיים" not in html
+
+    def test_casualty_details_shows_dead_only(self):
+        """Detail table should only show killed, not injured."""
         html = format_report(_critical_report(), *_make_times())
         assert "אישה בת 40" in html
-        assert "3 פצועים קל" in html
-        assert "פרטים" in html  # table header
+        assert "פרטי הנספים" in html  # table header
         assert "מיקום" in html  # table header
 
-    def test_no_casualty_details_when_empty(self):
-        report = _quiet_report()
-        report["killed"] = 1
-        report["injured"] = 0
-        report["civilian_killed"] = 1
+    def test_casualty_details_filters_injured(self):
+        """Injured entries should NOT appear in the detail table."""
+        report = _critical_report()
+        report["casualty_details"] = [
+            {"description": "אישה בת 40", "location": "תל אביב", "status": "נהרג/ה"},
+            {"description": "3 פצועים קל", "location": "חיפה", "status": "נפצע/ה קל"},
+        ]
         html = format_report(report, *_make_times())
-        assert "פרטים" not in html  # detail table not rendered
+        assert "אישה בת 40" in html      # dead — shown
+        assert "3 פצועים קל" not in html   # injured — filtered out
+
+    def test_no_casualty_details_when_no_dead(self):
+        report = _quiet_report()
+        report["killed"] = 0
+        report["injured"] = 5
+        report["casualty_details"] = [
+            {"description": "3 פצועים", "location": "חיפה", "status": "נפצע/ה"},
+        ]
+        html = format_report(report, *_make_times())
+        assert "פרטי הנספים" not in html  # no dead detail table
 
     def test_pilot_safe_green(self):
         html = format_report(_quiet_report(), *_make_times())

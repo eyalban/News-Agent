@@ -112,57 +112,34 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
     # --- Casualties ---
     killed = report.get("killed", 0)
     injured = report.get("injured", 0)
-    civ_killed = report.get("civilian_killed", 0)
-    civ_injured = report.get("civilian_injured", 0)
-    mil_killed = report.get("military_killed", 0)
-    mil_injured = report.get("military_injured", 0)
 
     if killed == 0 and injured == 0:
         casualties_html = f'<p style="color:#555;{rtl}">לא דווחו נפגעים בישראל בתקופה זו.</p>'
     else:
-        casualties_html = f"""<table style="border-collapse:collapse;font-size:14px;margin-top:4px;{rtl}">
-            <tr>
-                <td style="padding:3px 12px;{rtl}"></td>
-                <td style="padding:3px 12px;font-weight:bold;text-align:center;{rtl}">הרוגים</td>
-                <td style="padding:3px 12px;font-weight:bold;text-align:center;{rtl}">פצועים</td>
-            </tr>
-            <tr style="background:#f5f5f5;">
-                <td style="padding:3px 12px;font-weight:bold;{rtl}">אזרחים</td>
-                <td style="padding:3px 12px;text-align:center;{rtl}">{civ_killed}</td>
-                <td style="padding:3px 12px;text-align:center;{rtl}">{civ_injured}</td>
-            </tr>
-            <tr>
-                <td style="padding:3px 12px;font-weight:bold;{rtl}">צבאיים</td>
-                <td style="padding:3px 12px;text-align:center;{rtl}">{mil_killed}</td>
-                <td style="padding:3px 12px;text-align:center;{rtl}">{mil_injured}</td>
-            </tr>
-            <tr style="border-top:2px solid #ccc;">
-                <td style="padding:3px 12px;font-weight:bold;{rtl}">סה"כ</td>
-                <td style="padding:3px 12px;text-align:center;font-weight:bold;{rtl}">{killed}</td>
-                <td style="padding:3px 12px;text-align:center;font-weight:bold;{rtl}">{injured}</td>
-            </tr>
-        </table>"""
+        casualties_html = f"""<p style="font-size:16px;margin-top:4px;{rtl}">
+            <strong style="color:#b71c1c;">הרוגים: {killed}</strong>
+            &nbsp;&nbsp;|&nbsp;&nbsp;
+            <strong style="color:#e65100;">פצועים: {injured}</strong>
+        </p>"""
 
-    # --- Casualty details ---
+    # --- Casualty details (dead only) ---
     casualty_details = report.get("casualty_details", [])
-    if casualty_details:
+    # Only show detail rows for those killed
+    dead_details = [cd for cd in casualty_details if "נהרג" in cd.get("status", "")]
+    if dead_details:
         detail_rows = ""
-        for cd in casualty_details:
+        for cd in dead_details:
             desc = cd.get("description", "—")
             loc = cd.get("location", "—")
-            cstatus = cd.get("status", "—")
-            status_color = "#b71c1c" if "נהרג" in cstatus else "#e65100"
             detail_rows += f"""<tr>
                 <td style="padding:4px 8px;border-bottom:1px solid #eee;{rtl}">{desc}</td>
                 <td style="padding:4px 8px;border-bottom:1px solid #eee;{rtl}">{loc}</td>
-                <td style="padding:4px 8px;border-bottom:1px solid #eee;color:{status_color};font-weight:bold;{rtl}">{cstatus}</td>
             </tr>"""
         casualties_html += f"""<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;{rtl}">
             <thead>
                 <tr style="background:#f5f5f5;">
-                    <th style="padding:6px 8px;text-align:right;border-bottom:2px solid #ccc;">פרטים</th>
+                    <th style="padding:6px 8px;text-align:right;border-bottom:2px solid #ccc;">פרטי הנספים</th>
                     <th style="padding:6px 8px;text-align:right;border-bottom:2px solid #ccc;">מיקום</th>
-                    <th style="padding:6px 8px;text-align:right;border-bottom:2px solid #ccc;">מצב</th>
                 </tr>
             </thead>
             <tbody>{detail_rows}</tbody>

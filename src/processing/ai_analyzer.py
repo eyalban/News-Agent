@@ -135,16 +135,23 @@ You will receive news article headlines AND (when available) full article text f
    - Do NOT count casualties in Iran, Lebanon, Gaza, or other countries.
    - ONLY use numbers explicitly stated in articles. "casualties reported" without a number = 0.
    - Default: civilian. Only classify as military if article explicitly says soldier/military/IDF.
-   - If one article says "1 killed" and another says "2 killed" about different events, ADD them.
-   - If they describe the SAME event, use the higher/more recent number.
-   - IMPORTANT: Later articles often have updated totals. If one article says "1 killed" (early report) and a later article says "28 killed" (cumulative update), use the HIGHER number — it's a running total, not a separate event.
+   - If one article says "1 killed" and another says "2 killed" about CLEARLY different events in different locations, ADD them.
+   - If they describe the SAME event (same location, same timeframe), use the most authoritative number.
+
+   ⚠️ INJURED COUNT — BE CONSERVATIVE:
+   - Use ONLY the single most authoritative number from a credible source (IDF > MDA > Reuters/AP > others).
+   - Do NOT add injured counts from multiple articles about the same event — most are reporting the same total.
+   - "Over 20 injured" = 20 (use the stated minimum, not a higher estimate).
+   - "Dozens injured" = 0 (too vague — no specific number).
+   - "Casualties reported" without a number = 0.
+   - When in doubt, use the LOWER number. Wrong high numbers cause unnecessary panic.
 
    CASUALTY DETAILS (casualty_details):
-   - For each identified casualty or group, create an entry with any available metadata.
+   - Create entries ONLY for people who were KILLED — not for injured.
    - description: Hebrew text with whatever identifying info is available — name, age, gender.
-     Examples: "אישה בת 40", "גבר בשנות ה-30", "עתי כהן אנג'ל, 74", "3 פצועים קל"
+     Examples: "אישה בת 40", "גבר בשנות ה-30", "עתי כהן אנג'ל, 74"
    - location: city/area in Hebrew (e.g., "תל אביב", "רמת גן", "חיפה")
-   - status: "נהרג/ה" or "נפצע/ה קל/בינוני/קשה" or "נפצע/ה"
+   - status: "נהרג/ה"
    - Only include details that are EXPLICITLY stated. Do not guess demographics.
 
 4. PILOT STATUS (pilot_status):
@@ -294,8 +301,9 @@ def analyze_all(articles: list[dict]) -> dict | None:
         "If articles say 'Iran fired 40 missiles at Israel', then total_launches=40.\n"
         "- STRIKES TABLE: Only attacks directed AT Israel (not Israeli strikes on Iran/others).\n"
         "- CASUALTIES: Search ALL articles for 'killed', 'dead', 'wounded', 'injured' WITH numbers. "
-        "If article A says '1 killed' and article B says '20 wounded' about different events, ADD them. "
-        "Same event → use highest number. Also extract identity details (name, age, gender, city) into casualty_details.\n"
+        "For INJURED: use ONLY the single most authoritative number — do NOT add across articles about the same event. "
+        "'Over 20 injured' = 20, 'dozens injured' = 0. When in doubt, use the LOWER number.\n"
+        "- CASUALTY_DETAILS: Only include entries for people KILLED (not injured). Extract name, age, gender, city.\n"
         "- STATUS: Multi-wave attacks with casualties → קריטי.\n"
         "- HEADLINES: Short headlines often contain key numbers — extract them.\n\n"
         + articles_text
