@@ -156,56 +156,59 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
     else:
         sources_html = "מקורות שנבדקו: " + ", ".join(DEFAULT_SOURCES) + ". לא נמצאו דיווחים רלוונטיים."
 
+    # RTL base style applied to every block
+    rtl = "direction:rtl;text-align:right;"
+
     # --- Assemble full HTML ---
     html = f"""<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f0f0f0;">
-<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f0f0f0;{rtl}">
+<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);{rtl}">
 
     <!-- Header -->
-    <div style="background:#1a237e;color:#fff;padding:16px 24px;">
-        <h1 style="margin:0;font-size:20px;font-weight:bold;">🛡️ תדריך ביטחוני יומי</h1>
-        <p style="margin:4px 0 0;font-size:13px;opacity:0.85;">{date_str} &nbsp;|&nbsp; תקופה: {period_str}</p>
+    <div style="background:#1a237e;color:#fff;padding:16px 24px;{rtl}">
+        <h1 style="margin:0;font-size:20px;font-weight:bold;{rtl}">🛡️ תדריך ביטחוני יומי</h1>
+        <p style="margin:4px 0 0;font-size:13px;opacity:0.85;{rtl}">{date_str} &nbsp;|&nbsp; תקופה: {period_str}</p>
     </div>
 
     <!-- Status banner -->
-    <div style="background:{status_color};color:#fff;padding:12px 24px;font-size:18px;font-weight:bold;">
+    <div style="background:{status_color};color:#fff;padding:12px 24px;font-size:18px;font-weight:bold;{rtl}">
         {status_emoji} מצב: {status}
     </div>
 
-    <div style="padding:20px 24px;">
+    <div style="padding:20px 24px;{rtl}">
 
         <!-- Strikes -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;margin-top:0;">
-            🚀 תקיפות (12 שעות אחרונות)
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;margin-top:0;{rtl}">
+            🚀 תקיפות על ישראל (12 שעות אחרונות)
         </h2>
         {strikes_html}
 
         <!-- Casualties -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;{rtl}">
             🏥 נפגעים
         </h2>
         {casualties_html}
 
         <!-- Pilot Status -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;{rtl}">
             ✈️ מצב טייסי חה"א
         </h2>
-        <p style="color:{pilot_color};font-weight:bold;font-size:15px;">
+        <p style="color:{pilot_color};font-weight:bold;font-size:15px;{rtl}">
             {pilot_icon} {pilot_status}
         </p>
 
         <!-- Air Base Status -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;{rtl}">
             🛩️ מצב בסיסי חה"א
         </h2>
-        <p style="color:{airbase_color};font-weight:bold;font-size:15px;">
+        <p style="color:{airbase_color};font-weight:bold;font-size:15px;{rtl}">
             {airbase_icon} {airbase_status}
         </p>
 
         <!-- Active Alerts -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;">
+        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;{rtl}">
             🚨 התרעות פעילות
         </h2>
         {alerts_html}
@@ -213,8 +216,13 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
     </div>
 
     <!-- Sources footer -->
-    <div style="background:#f5f5f5;padding:12px 24px;font-size:12px;color:#777;border-top:1px solid #e0e0e0;">
+    <div style="background:#f5f5f5;padding:12px 24px;font-size:12px;color:#777;border-top:1px solid #e0e0e0;{rtl}">
         <strong>מקורות:</strong> {sources_html}
+    </div>
+
+    <!-- Disclaimer -->
+    <div style="padding:8px 24px;font-size:11px;color:#999;{rtl}">
+        דוח זה מבוסס על כתבות חדשותיות בלבד. מספרים מופיעים רק כאשר דווחו במפורש במקורות.
     </div>
 
 </div>

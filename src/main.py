@@ -14,6 +14,7 @@ from src.config import (
 )
 from src.sources.google_news_rss import fetch_google_news
 from src.sources.rss_feeds import fetch_direct_feeds
+from src.sources.content_fetcher import enrich_articles_with_content
 from src.processing.relevance_filter import filter_relevant
 from src.processing.deduplicator import deduplicate
 from src.processing.ai_analyzer import analyze_all
@@ -74,7 +75,11 @@ def run(force: bool = False):
     deduped = deduplicate(relevant)
     logger.info("After pipeline: %d articles", len(deduped))
 
-    # Step 5: AI analysis
+    # Step 5: Fetch full article content for top articles
+    logger.info("--- CONTENT ENRICHMENT PHASE ---")
+    deduped = enrich_articles_with_content(deduped)
+
+    # Step 6: AI analysis
     logger.info("--- ANALYZE PHASE ---")
     report_data = analyze_all(deduped)
 

@@ -79,37 +79,43 @@ REPORT_SCHEMA = {
 
 # --- System Prompt ---
 
-SYSTEM_PROMPT = """You are a military intelligence analyst producing a daily security brief about the Iran-Israel conflict.
+SYSTEM_PROMPT = """You are a military intelligence analyst producing a daily security brief about the Iran-Israel conflict. This report is for the family of an active-duty pilot. ACCURACY IS PARAMOUNT — a wrong number is worse than no number.
 
-You will receive a batch of news article headlines and summaries from the last 12 hours. Your job is to:
+You will receive news article headlines AND full article text from the last 12 hours.
 
-1. IDENTIFY ALL strike/attack events targeting Israel (missile, rocket, drone, ballistic, cruise). Be THOROUGH — if multiple headlines mention different strikes, count each unique event. Headlines like "Iran launches missiles at Israel" and "Ballistic missiles target Tel Aviv" may describe the same event OR different waves — use timestamps and locations to distinguish.
-2. DEDUPLICATE carefully: Only merge events that clearly describe the SAME strike (same time, same location, same weapon type). When in doubt, list them separately.
-3. EXTRACT casualty numbers. When multiple sources report different numbers, use the HIGHEST credible report.
-4. PAY SPECIAL ATTENTION to any mention of Israeli Air Force (IAF/חה"א) pilots, aircrew, or air force personnel being harmed, injured, or killed.
-5. PAY SPECIAL ATTENTION to any mention of Israeli air bases (Nevatim, Ramon, Ramat David, Hatzerim, Palmachim, Hatzor, Ovda, Sde Dov, Tel Nof) being targeted, hit, damaged, or attacked.
-6. IDENTIFY any active alerts or sirens mentioned.
-7. DETERMINE the overall threat status:
-   - שקט (CALM): No strikes, no casualties, no active alerts
-   - מוגבר (ELEVATED): Diplomatic tensions, military movements, minor incidents, rocket attacks from Gaza/Lebanon
-   - גבוה (HIGH): Confirmed strikes from Iran/proxies, casualties reported, active alerts
-   - קריטי (CRITICAL): Major multi-wave Iranian attack, significant casualties, ongoing alerts
+YOUR TASKS:
+1. IDENTIFY all strike/attack events targeting Israel (missile, rocket, drone, ballistic, cruise).
+   - Distinguish between strikes ON Israel vs. Israeli/US strikes on Iran — these are SEPARATE events.
+   - Use timestamps, locations, and weapon types to distinguish unique events.
+   - If multiple articles describe the same strike from different angles, count it ONCE.
+   - total_launches = total number of projectiles/missiles/drones launched AT Israel (not by Israel).
+2. EXTRACT casualty numbers ONLY from explicit statements in the text.
+3. CHECK for any mention of Israeli Air Force (IAF/חה"א) pilots, aircrew, or air force personnel.
+4. CHECK for any mention of Israeli air bases: Nevatim, Ramon, Ramat David, Hatzerim, Palmachim, Hatzor, Ovda, Tel Nof.
+5. IDENTIFY active alerts or sirens.
+6. DETERMINE threat status:
+   - שקט: No strikes on Israel, no casualties, no alerts
+   - מוגבר: Tensions, military movements, minor incidents
+   - גבוה: Confirmed strikes on Israel, casualties, active alerts
+   - קריטי: Major multi-wave attack on Israel, significant casualties
 
-IMPORTANT — EXTRACTION GUIDANCE:
-- Many headlines describe the SAME event from different angles. A "US and Israel strike Iran" article and a "Iran retaliates against Israel" article describe TWO different directions of attack — extract both.
-- When a headline says "X missiles launched", extract that number even if other details are sparse.
-- If an article mentions "multiple waves" or "barrage of rockets", try to estimate a count from context. If no count is given, use the total from the article with the highest specificity.
-- Every unique location mentioned as a target should appear in the strikes table.
+CRITICAL ACCURACY RULES — READ CAREFULLY:
+- NEVER invent, estimate, or guess numbers. If an article says "casualties reported" but gives no count, set killed=0 and injured=0 — do NOT make up numbers.
+- ONLY count casualties explicitly stated with numbers in the text (e.g., "3 killed", "12 wounded"). Vague phrases like "casualties reported" or "people hurt" without numbers = 0.
+- NEVER classify casualties as military unless the text EXPLICITLY says "soldier", "military", "IDF", "servicemember", or similar. Default: if unspecified, count as civilian.
+- For total_launches: ONLY use a number if the text explicitly states it (e.g., "Iran fired 180 ballistic missiles"). If no specific count is given, use 0 and list what you know in the strikes table.
+- For interceptions: ONLY count if explicitly stated. Do not assume interceptions.
+- If information is uncertain or not explicitly stated, USE ZERO or USE DEFAULT. Never fill in plausible-sounding numbers.
+- The strikes table should list each UNIQUE strike event you can confirm from the text.
 
-RULES:
-- Extract ONLY facts explicitly stated in the articles. Never speculate.
-- Times should be in Israel time (IST/IDT) in HH:MM format if available, or "—" if unknown.
-- weapon_type in Hebrew: בליסטי, שיוט, רקטה, מל"ט, or the original term.
+OUTPUT RULES:
+- Times in Israel time (HH:MM) if available, or "—" if unknown.
+- weapon_type in Hebrew: בליסטי, שיוט, רקטה, מל"ט, or original term.
 - result in Hebrew: יורט, פגיעה, לא ידוע.
-- pilot_status in Hebrew. Default: "לא דווח על פגיעה בטייסי חיל האוויר." If there IS news about pilots, provide details.
-- airbase_status in Hebrew. Default: "לא דווח על פגיעה בבסיסי חיל האוויר." If there IS news about air bases being targeted/hit, provide details.
-- ALL text values in Hebrew except source names (which stay in English).
-- If no relevant strike/conflict events are found, return status שקט with all zeros."""
+- pilot_status in Hebrew. Default: "לא דווח על פגיעה בטייסי חיל האוויר."
+- airbase_status in Hebrew. Default: "לא דווח על פגיעה בבסיסי חיל האוויר."
+- ALL text in Hebrew except source names (English).
+- If nothing relevant found, return status שקט with all zeros."""
 
 
 def _call_openai(messages: list[dict], response_format: dict) -> dict | None:
@@ -177,9 +183,12 @@ def analyze_all(articles: list[dict]) -> dict | None:
     articles_text = _format_articles_for_prompt(articles)
     user_content = (
         f"Here are {len(articles)} news articles from the last 12 hours. "
-        "Analyze them and produce a structured security brief.\n"
-        "IMPORTANT: Be thorough. Extract ALL strike events, ALL casualty reports, "
-        "and ANY mention of pilots or air bases. Do not under-count.\n\n"
+        "Analyze them and produce a structured security brief.\n\n"
+        "REMINDERS:\n"
+        "- Only count strikes/launches directed AT Israel (not Israeli strikes on Iran).\n"
+        "- Only report casualty numbers you find explicitly stated in the article text.\n"
+        "- If you cannot find a specific number, use 0 — NEVER guess.\n"
+        "- Only classify casualties as military if the text explicitly says so.\n\n"
         + articles_text
     )
 
