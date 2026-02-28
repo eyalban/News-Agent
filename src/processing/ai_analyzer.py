@@ -118,17 +118,28 @@ You will receive news article headlines AND (when available) full article text f
    - Israeli strikes on Iran/Lebanon/Gaza should be mentioned in key_developments but NOT in the strikes table.
    - Each row in strikes = one confirmed strike event or wave. Use details from the articles.
    - origin = who launched it (e.g., "איראן", "חיזבאללה", "חות'ים", "חמאס")
-   - total_launches = number of INCOMING projectiles toward Israel (missiles, rockets, drones).
-   - If articles report interceptions (e.g., "most were intercepted", "IDF intercepted 130"), use the stated number.
-   - If multiple articles give DIFFERENT numbers for the same event, use the number from the most authoritative source (IDF > Reuters/AP > others).
 
-   ⚠️ CRITICAL — AVOID THESE COMMON CONFUSIONS:
-   - "200 Israeli aircraft" or "200 IAF jets" = Israeli planes striking Iran. NOT launches AT Israel.
-   - "500 targets struck in Iran" = Israeli/US offensive. NOT incoming fire on Israel.
-   - total_launches = ONLY projectiles INCOMING toward Israel.
-   - total_intercepted: Use the stated interception count if available (e.g., "IDF intercepted 90" → 90). If ONLY vague phrases like "most were intercepted" appear with NO number, estimate as ~80% of total_launches. Only use 0 if NO interception info appears at all.
-   - total_impact = ONLY impacts explicitly reported (e.g., "missile hit a building in Tel Aviv" = at least 1 impact). Do NOT set total_impact = total_launches. If no impact count stated, count confirmed hits from articles.
-   - RULE: total_impact + total_intercepted ≤ total_launches. If total_intercepted=0 (unknown), total_impact should still reflect ONLY confirmed hits, NOT all launches.
+   ⚠️ CRITICAL NUMBER RULES — NEVER ESTIMATE, NEVER CALCULATE:
+   All three totals must come DIRECTLY from explicit statements in articles. NEVER derive one from the others.
+
+   total_launches:
+   - ONLY projectiles fired AT Israel — NOT Israeli offensive operations.
+   - "200 Israeli aircraft" or "200 IAF jets" = Israeli planes, NOT incoming missiles. IGNORE these.
+   - "500 targets struck in Iran" = Israeli/US offensive. IGNORE these.
+   - Use ONLY a number explicitly described as missiles/rockets/drones launched TOWARD or AT Israel.
+   - If articles say "Iran launched X missiles at Israel" or "X missiles were fired toward Israel", use X.
+   - If no specific count of INCOMING projectiles is stated, use 0.
+
+   total_intercepted:
+   - ONLY use a number explicitly stated as intercepted (e.g., "IDF intercepted 90" → 90).
+   - "Most were intercepted" with NO specific number → use 0. Do NOT estimate or calculate.
+   - NEVER compute total_intercepted = total_launches - total_impact.
+
+   total_impact:
+   - Count ONLY confirmed hits explicitly described in articles (e.g., "missile struck a building in Tel Aviv" = 1).
+   - Go through each article and count distinct confirmed impact events. Typical range: 1-5 in a major attack.
+   - NEVER compute total_impact = total_launches - total_intercepted.
+   - If no impacts are explicitly described, use 0.
 
 3. CASUALTIES IN ISRAEL (killed/injured + casualty_details):
    - ONLY count casualties/injuries INSIDE Israel from attacks ON Israel.
@@ -296,14 +307,13 @@ def analyze_all(articles: list[dict]) -> dict | None:
         f"Here are {len(selected)} news articles from the last 12 hours. "
         "Analyze them and produce a structured security brief.\n\n"
         "IMPORTANT REMINDERS:\n"
-        "- LAUNCHES: total_launches = ONLY projectiles/missiles fired AT Israel. "
-        "'200 Israeli jets' or '500 targets in Iran' are ISRAELI OFFENSIVE operations — do NOT count as launches AT Israel. "
-        "If articles say 'Iran fired 40 missiles at Israel', then total_launches=40.\n"
-        "- STRIKES TABLE: Only attacks directed AT Israel (not Israeli strikes on Iran/others).\n"
-        "- CASUALTIES: Search ALL articles for 'killed', 'dead', 'wounded', 'injured' WITH numbers. "
-        "For INJURED: use ONLY the single most authoritative number — do NOT add across articles about the same event. "
-        "'Over 20 injured' = 20, 'dozens injured' = 0. When in doubt, use the LOWER number.\n"
-        "- CASUALTY_DETAILS: Only include entries for people KILLED (not injured). Extract name, age, gender, city.\n"
+        "- NEVER ESTIMATE OR CALCULATE — every number must come from an explicit statement in an article.\n"
+        "- total_launches: ONLY missiles/rockets/drones fired AT Israel. '200 Israeli jets' = ISRAELI offensive, IGNORE.\n"
+        "- total_intercepted: ONLY if a specific interception count is stated. 'Most intercepted' without a number = 0.\n"
+        "- total_impact: Count ONLY confirmed hits described in articles (e.g., 'missile hit building in Tel Aviv' = 1). Typical range 1-5.\n"
+        "- NEVER derive one total from the others (e.g., never do launches - intercepted = impact).\n"
+        "- CASUALTIES: Use ONLY the single most authoritative number. 'Over 20 injured' = 20, 'dozens' = 0.\n"
+        "- CASUALTY_DETAILS: Only entries for people KILLED (not injured). Extract name, age, gender, city.\n"
         "- STATUS: Multi-wave attacks with casualties → קריטי.\n"
         "- HEADLINES: Short headlines often contain key numbers — extract them.\n\n"
         + articles_text
