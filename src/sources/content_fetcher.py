@@ -102,6 +102,7 @@ def enrich_articles_with_content(articles: list[dict]) -> list[dict]:
         content = _fetch_one(url)
         if content:
             article["summary"] = content
+            article["enriched"] = True
             enriched_count += 1
 
         if i < len(to_fetch) - 1:

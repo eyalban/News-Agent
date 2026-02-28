@@ -191,28 +191,43 @@ def _format_articles_for_prompt(articles: list[dict]) -> str:
     return "\n".join(lines)
 
 
+CASUALTY_KEYWORDS = {"killed", "dead", "wounded", "injured", "hurt", "casualties", "fatalities"}
+
+
 def _select_articles_for_ai(articles: list[dict], max_count: int) -> list[dict]:
     """Select articles for AI analysis, balancing enriched content and headline diversity.
 
     Strategy:
-    - First: all articles with full content (enriched from direct feeds)
-    - Then: remaining articles sorted by source priority, to fill up to max_count
-    This ensures the AI gets both detailed article text AND broad headline coverage.
+    1. First: articles enriched with full content (marked by content_fetcher)
+    2. Then: headline articles containing casualty-related keywords (ensures numbers are captured)
+    3. Then: remaining articles to fill quota (broad headline coverage)
+    This ensures the AI gets detailed text + casualty-specific headlines + broad coverage.
     """
-    # Split into enriched (>200 chars summary) and headline-only
     enriched = []
-    headlines = []
+    casualty_headlines = []
+    other = []
+
     for article in articles:
-        summary = article.get("summary", "")
-        if len(summary) > 200:
+        if article.get("enriched"):
             enriched.append(article)
         else:
-            headlines.append(article)
+            title_lower = article.get("title", "").lower()
+            if any(kw in title_lower for kw in CASUALTY_KEYWORDS):
+                casualty_headlines.append(article)
+            else:
+                other.append(article)
 
     selected = enriched[:max_count]
-    remaining_slots = max_count - len(selected)
-    if remaining_slots > 0:
-        selected.extend(headlines[:remaining_slots])
+    remaining = max_count - len(selected)
+
+    # Add casualty headlines next — these often have key numbers
+    if remaining > 0:
+        selected.extend(casualty_headlines[:remaining])
+        remaining = max_count - len(selected)
+
+    # Fill with remaining headlines for broad coverage
+    if remaining > 0:
+        selected.extend(other[:remaining])
 
     return selected
 
@@ -229,11 +244,14 @@ def analyze_all(articles: list[dict]) -> dict | None:
         logger.info("No articles to analyze, returning quiet-day report")
         return _quiet_day_report()
 
-    # Smart selection: prioritize enriched articles, then fill with headlines
+    # Smart selection: prioritize enriched articles, then casualty headlines, then rest
     selected = _select_articles_for_ai(articles, MAX_ARTICLES_FOR_AI)
-    enriched_count = sum(1 for a in selected if len(a.get("summary", "")) > 200)
-    logger.info("Sending %d articles to OpenAI (%d with full text, %d headlines only)...",
-                len(selected), enriched_count, len(selected) - enriched_count)
+    enriched_count = sum(1 for a in selected if a.get("enriched"))
+    casualty_count = sum(1 for a in selected if not a.get("enriched") and
+                         any(kw in a.get("title", "").lower() for kw in CASUALTY_KEYWORDS))
+    headline_count = len(selected) - enriched_count - casualty_count
+    logger.info("Sending %d articles to OpenAI (%d enriched, %d casualty headlines, %d other headlines)...",
+                len(selected), enriched_count, casualty_count, headline_count)
 
     articles_text = _format_articles_for_prompt(selected)
     user_content = (
