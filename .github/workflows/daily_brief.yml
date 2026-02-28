@@ -32,4 +32,9 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
           RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
-        run: python -m src.main
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python -m src.main --force
+          else
+            python -m src.main
+          fi
