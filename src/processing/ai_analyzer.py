@@ -122,11 +122,13 @@ You will receive news article headlines AND (when available) full article text f
    - If articles report interceptions (e.g., "most were intercepted", "IDF intercepted 130"), use the stated number.
    - If multiple articles give DIFFERENT numbers for the same event, use the number from the most authoritative source (IDF > Reuters/AP > others).
 
-   ⚠️ COMMON CONFUSION — READ CAREFULLY:
-   - "200 Israeli aircraft" or "200 IAF jets" = Israeli planes striking Iran. This is NOT 200 launches AT Israel. Do NOT use this number for total_launches.
-   - "500 targets struck in Iran" = Israeli/US offensive strikes. This is NOT incoming fire on Israel.
-   - total_launches must ONLY reflect projectiles FIRED AT Israel (e.g., "Iran fired 40 ballistic missiles at Israel" → total_launches=40).
-   - If no specific count of incoming projectiles is stated, use 0 and describe what you know in the strikes table rows.
+   ⚠️ CRITICAL — AVOID THESE COMMON CONFUSIONS:
+   - "200 Israeli aircraft" or "200 IAF jets" = Israeli planes striking Iran. NOT launches AT Israel.
+   - "500 targets struck in Iran" = Israeli/US offensive. NOT incoming fire on Israel.
+   - total_launches = ONLY projectiles INCOMING toward Israel.
+   - total_intercepted = ONLY if a specific interception count is stated. "Most intercepted" without a number = 0.
+   - total_impact = ONLY impacts explicitly reported (e.g., "missile hit a building in Tel Aviv" = at least 1 impact). Do NOT set total_impact = total_launches. If no impact count stated, count confirmed hits from articles.
+   - RULE: total_impact + total_intercepted ≤ total_launches. If total_intercepted=0 (unknown), total_impact should still reflect ONLY confirmed hits, NOT all launches.
 
 3. CASUALTIES IN ISRAEL (killed/injured + casualty_details):
    - ONLY count casualties/injuries INSIDE Israel from attacks ON Israel.
