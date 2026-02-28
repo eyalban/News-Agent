@@ -78,12 +78,10 @@ OPENAI_MODEL = "gpt-4o-mini"
 OPENAI_MAX_TOKENS = 4000
 OPENAI_TEMPERATURE = 0.1
 
-# --- Email ---
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 465
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "")
+# --- Email (Resend) ---
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 RECIPIENT_EMAIL = os.environ.get("RECIPIENT_EMAIL", "")
-GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
 
 # --- Resilience ---
 MAX_RETRIES = 3
