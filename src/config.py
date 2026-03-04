@@ -109,7 +109,11 @@ OPENAI_TEMPERATURE = 0.1
 # --- Email (Resend) ---
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
-RECIPIENT_EMAIL = os.environ.get("RECIPIENT_EMAIL", "")
+RECIPIENT_EMAILS = [
+    e.strip() for e in
+    os.environ.get("RECIPIENT_EMAIL", "Zohardayan94@gmail.com,Eyalbanon@gmail.com").split(",")
+    if e.strip()
+]
 
 # --- Resilience ---
 MAX_RETRIES = 3

@@ -6,7 +6,7 @@ import resend
 from src.config import (
     RESEND_API_KEY,
     SENDER_EMAIL,
-    RECIPIENT_EMAIL,
+    RECIPIENT_EMAILS,
     MAX_RETRIES,
     RETRY_DELAY_SECONDS,
 )
@@ -24,7 +24,7 @@ def send_report(subject: str, body_html: str) -> bool:
     Returns:
         True if sent successfully, False otherwise.
     """
-    if not all([RESEND_API_KEY, RECIPIENT_EMAIL]):
+    if not RESEND_API_KEY or not RECIPIENT_EMAILS:
         logger.error("Email configuration incomplete. Check RESEND_API_KEY and RECIPIENT_EMAIL.")
         return False
 
@@ -34,11 +34,11 @@ def send_report(subject: str, body_html: str) -> bool:
         try:
             result = resend.Emails.send({
                 "from": f"Daily Brief <{SENDER_EMAIL}>",
-                "to": [RECIPIENT_EMAIL],
+                "to": RECIPIENT_EMAILS,
                 "subject": subject,
                 "html": body_html,
             })
-            logger.info("Email sent successfully to %s (id: %s)", RECIPIENT_EMAIL, result.get("id", "?"))
+            logger.info("Email sent successfully to %s (id: %s)", RECIPIENT_EMAILS, result.get("id", "?"))
             return True
         except Exception as e:
             logger.warning("Email send attempt %d failed: %s", attempt + 1, e)
