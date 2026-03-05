@@ -17,10 +17,10 @@ DEFAULT_SOURCES = [
 ]
 
 STATUS_COLORS = {
-    "שקט": "#2e7d32",      # green
-    "מוגבר": "#f57f17",    # amber
-    "גבוה": "#e65100",     # orange
-    "קריטי": "#b71c1c",    # red
+    "שקט": "#4caf50",      # soft green
+    "מוגבר": "#ffb74d",    # soft amber
+    "גבוה": "#ff8a65",     # soft orange
+    "קריטי": "#e57373",    # soft red
 }
 
 STATUS_EMOJI = {
@@ -88,7 +88,7 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
                 origin = s.get("origin", "—") or "—"
                 target = s.get("target_location", "—") or "—"
                 result = s.get("result", "—") or "—"
-                result_color = "#b71c1c" if result == "פגיעה" else ("#2e7d32" if result == "יורט" else "#555")
+                result_color = "#7a4a4a" if result == "פגיעה" else ("#4a7a5c" if result == "יורט" else "#777")
                 rows += f"""<tr>
                     <td style="padding:4px 8px;border-bottom:1px solid #eee;{rtl}">{time_il}</td>
                     <td style="padding:4px 8px;border-bottom:1px solid #eee;{rtl}">{origin}</td>
@@ -116,10 +116,10 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
     if killed == 0 and injured == 0:
         casualties_html = f'<p style="color:#555;{rtl}">לא דווחו נפגעים בישראל בתקופה זו.</p>'
     else:
-        casualties_html = f"""<p style="font-size:16px;margin-top:4px;{rtl}">
-            <strong style="color:#b71c1c;">הרוגים: {killed}</strong>
-            &nbsp;&nbsp;|&nbsp;&nbsp;
-            <strong style="color:#e65100;">פצועים: {injured}</strong>
+        casualties_html = f"""<p style="font-size:15px;margin-top:4px;{rtl}">
+            <strong style="color:#7a4a4a;">הרוגים: {killed}</strong>
+            &nbsp;&nbsp;·&nbsp;&nbsp;
+            <strong style="color:#8a6d3b;">פצועים: {injured}</strong>
         </p>"""
 
     # --- Casualty details (dead only) ---
@@ -149,13 +149,13 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
     pilot_status = report.get("pilot_status", "לא דווח על פגיעה בטייסי חיל האוויר.")
     pilot_is_clear = "לא דווח על פגיעה" in pilot_status
     pilot_icon = "✅" if pilot_is_clear else "⚠️"
-    pilot_color = "#2e7d32" if pilot_is_clear else "#e65100"
+    pilot_color = "#4a7a5c" if pilot_is_clear else "#c48a3f"
 
     # --- Air base status ---
     airbase_status = report.get("airbase_status", "לא דווח על פגיעה בבסיסי חיל האוויר.")
     airbase_is_clear = "לא דווח על פגיעה" in airbase_status
     airbase_icon = "✅" if airbase_is_clear else "⚠️"
-    airbase_color = "#2e7d32" if airbase_is_clear else "#e65100"
+    airbase_color = "#4a7a5c" if airbase_is_clear else "#c48a3f"
 
     # --- Alerts ---
     alerts = report.get("active_alerts", [])
@@ -178,71 +178,75 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
     html = f"""<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f0f0f0;{rtl}">
-<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);{rtl}">
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#eef2f7;{rtl}">
+<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);{rtl}">
 
     <!-- Header -->
-    <div style="background:#1a237e;color:#fff;padding:16px 24px;{rtl}">
-        <h1 style="margin:0;font-size:20px;font-weight:bold;{rtl}">🛡️ תדריך ביטחוני יומי</h1>
-        <p style="margin:4px 0 0;font-size:13px;opacity:0.85;{rtl}">{date_str} &nbsp;|&nbsp; תקופה: {period_str}</p>
+    <div style="background:linear-gradient(135deg,#3f6b9e,#5a8fc4);color:#fff;padding:20px 28px;{rtl}">
+        <h1 style="margin:0;font-size:19px;font-weight:600;letter-spacing:0.3px;{rtl}">עדכון יומי</h1>
+        <p style="margin:6px 0 0;font-size:13px;opacity:0.8;{rtl}">{date_str} &nbsp;·&nbsp; {period_str}</p>
     </div>
 
     <!-- Status banner -->
-    <div style="background:{status_color};color:#fff;padding:12px 24px;font-size:18px;font-weight:bold;{rtl}">
+    <div style="background:{status_color};color:#fff;padding:10px 28px;font-size:16px;font-weight:600;{rtl}">
         {status_emoji} מצב: {status}
     </div>
 
-    <div style="padding:20px 24px;{rtl}">
+    <div style="padding:24px 28px;{rtl}">
+
+        <!-- Pilot Status — first for quick reassurance -->
+        <div style="background:#f0f7f0;border-radius:8px;padding:14px 18px;margin-bottom:20px;border-right:4px solid {pilot_color};{rtl}">
+            <h2 style="font-size:15px;color:#3f6b9e;margin:0 0 6px;{rtl}">
+                מצב טייסים
+            </h2>
+            <p style="color:{pilot_color};font-weight:600;font-size:14px;margin:0;{rtl}">
+                {pilot_icon} {pilot_status}
+            </p>
+        </div>
+
+        <!-- Air Base Status -->
+        <div style="background:#f0f4f8;border-radius:8px;padding:14px 18px;margin-bottom:20px;border-right:4px solid {airbase_color};{rtl}">
+            <h2 style="font-size:15px;color:#3f6b9e;margin:0 0 6px;{rtl}">
+                מצב בסיסי חה"א
+            </h2>
+            <p style="color:{airbase_color};font-weight:600;font-size:14px;margin:0;{rtl}">
+                {airbase_icon} {airbase_status}
+            </p>
+        </div>
 
         <!-- Key Developments -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;margin-top:0;{rtl}">
-            📋 התפתחויות עיקריות
+        <h2 style="font-size:15px;color:#3f6b9e;border-bottom:1px solid #d8e2ee;padding-bottom:6px;margin-top:4px;{rtl}">
+            התפתחויות עיקריות
         </h2>
         {developments_html}
 
         <!-- Strikes -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;{rtl}">
-            🚀 תקיפות על ישראל (12 שעות אחרונות)
+        <h2 style="font-size:15px;color:#3f6b9e;border-bottom:1px solid #d8e2ee;padding-bottom:6px;margin-top:20px;{rtl}">
+            תקיפות על ישראל (12 שעות אחרונות)
         </h2>
         {strikes_html}
 
         <!-- Casualties -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;{rtl}">
-            🏥 נפגעים בישראל
+        <h2 style="font-size:15px;color:#3f6b9e;border-bottom:1px solid #d8e2ee;padding-bottom:6px;margin-top:20px;{rtl}">
+            נפגעים בישראל
         </h2>
         {casualties_html}
 
-        <!-- Pilot Status -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;{rtl}">
-            ✈️ מצב טייסי חה"א
-        </h2>
-        <p style="color:{pilot_color};font-weight:bold;font-size:15px;{rtl}">
-            {pilot_icon} {pilot_status}
-        </p>
-
-        <!-- Air Base Status -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;{rtl}">
-            🛩️ מצב בסיסי חה"א
-        </h2>
-        <p style="color:{airbase_color};font-weight:bold;font-size:15px;{rtl}">
-            {airbase_icon} {airbase_status}
-        </p>
-
         <!-- Active Alerts -->
-        <h2 style="font-size:16px;color:#1a237e;border-bottom:2px solid #1a237e;padding-bottom:6px;{rtl}">
-            🚨 התרעות פעילות
+        <h2 style="font-size:15px;color:#3f6b9e;border-bottom:1px solid #d8e2ee;padding-bottom:6px;margin-top:20px;{rtl}">
+            התרעות פעילות
         </h2>
         {alerts_html}
 
     </div>
 
     <!-- Sources footer -->
-    <div style="background:#f5f5f5;padding:12px 24px;font-size:12px;color:#777;border-top:1px solid #e0e0e0;{rtl}">
+    <div style="background:#f7f9fb;padding:14px 28px;font-size:12px;color:#8899aa;border-top:1px solid #e8edf2;{rtl}">
         <strong>מקורות:</strong> {sources_html}
     </div>
 
     <!-- Disclaimer -->
-    <div style="padding:8px 24px;font-size:11px;color:#999;{rtl}">
+    <div style="padding:10px 28px 14px;font-size:11px;color:#aab5c2;{rtl}">
         דוח זה מבוסס על כתבות חדשותיות בלבד. מספרים מופיעים רק כאשר דווחו במפורש במקורות. נפגעים = בישראל בלבד.
     </div>
 
@@ -284,19 +288,19 @@ def format_fallback_report(articles: list[dict], start_time: datetime, end_time:
     html = f"""<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f0f0f0;{rtl}">
-<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);{rtl}">
+<body style="margin:0;padding:0;font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#eef2f7;{rtl}">
+<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);{rtl}">
 
-    <div style="background:#1a237e;color:#fff;padding:16px 24px;{rtl}">
-        <h1 style="margin:0;font-size:20px;{rtl}">🛡️ תדריך ביטחוני יומי</h1>
-        <p style="margin:4px 0 0;font-size:13px;opacity:0.85;{rtl}">{date_str} &nbsp;|&nbsp; {period_str}</p>
+    <div style="background:linear-gradient(135deg,#3f6b9e,#5a8fc4);color:#fff;padding:20px 28px;{rtl}">
+        <h1 style="margin:0;font-size:19px;font-weight:600;{rtl}">עדכון יומי</h1>
+        <p style="margin:6px 0 0;font-size:13px;opacity:0.8;{rtl}">{date_str} &nbsp;·&nbsp; {period_str}</p>
     </div>
 
-    <div style="background:#f57f17;color:#fff;padding:12px 24px;font-size:16px;font-weight:bold;{rtl}">
-        ⚠️ סיכום AI לא זמין — כותרות גולמיות בלבד
+    <div style="background:#ffb74d;color:#fff;padding:10px 28px;font-size:15px;font-weight:600;{rtl}">
+        סיכום AI לא זמין — כותרות בלבד
     </div>
 
-    <div style="padding:20px 24px;{rtl}">
+    <div style="padding:24px 28px;{rtl}">
         {articles_html}
     </div>
 
