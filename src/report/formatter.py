@@ -187,12 +187,10 @@ def format_report(report: dict, start_time: datetime, end_time: datetime) -> str
         <p style="margin:6px 0 0;font-size:13px;opacity:0.8;{rtl}">{date_str} &nbsp;·&nbsp; {period_str}</p>
     </div>
 
-    <!-- Status banner -->
-    <div style="background:{status_color};color:#fff;padding:10px 28px;font-size:16px;font-weight:600;{rtl}">
-        {status_emoji} מצב: {status}
-    </div>
-
     <div style="padding:24px 28px;{rtl}">
+
+        <!-- Greeting -->
+        <p style="font-size:16px;color:#3f6b9e;margin:0 0 18px;{rtl}">בוקר טוב!</p>
 
         <!-- Pilot Status — first for quick reassurance -->
         <div style="background:#f0f7f0;border-radius:8px;padding:14px 18px;margin-bottom:20px;border-right:4px solid {pilot_color};{rtl}">
