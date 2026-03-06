@@ -87,15 +87,14 @@ class TestFormatReport:
         assert 'dir="rtl"' in html
         assert 'lang="he"' in html
 
-    def test_quiet_status_green(self):
+    def test_quiet_report_has_greeting(self):
         html = format_report(_quiet_report(), *_make_times())
-        assert "#2e7d32" in html  # green color
-        assert "שקט" in html
+        assert "בוקר טוב" in html
+        assert "#4a7a5c" in html  # green color (pilot safe)
 
-    def test_critical_status_red(self):
+    def test_critical_report_has_casualty_color(self):
         html = format_report(_critical_report(), *_make_times())
-        assert "#b71c1c" in html  # red color (status or casualty)
-        assert "קריטי" in html
+        assert "#7a4a4a" in html  # red-ish color (casualty killed)
 
     def test_no_strikes_message(self):
         html = format_report(_quiet_report(), *_make_times())
@@ -161,7 +160,7 @@ class TestFormatReport:
     def test_pilot_safe_green(self):
         html = format_report(_quiet_report(), *_make_times())
         assert "✅" in html
-        assert "#2e7d32" in html  # green
+        assert "#4a7a5c" in html  # green
 
     def test_pilot_warning_orange(self):
         report = _quiet_report()
