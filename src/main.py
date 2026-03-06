@@ -101,7 +101,7 @@ def run(force: bool = False):
     boston_tz = pytz.timezone(BOSTON_TIMEZONE)
     now_boston = end_time.astimezone(boston_tz)
     date_str = now_boston.strftime("%d/%m")
-    subject = f"תדריך ביטחוני | {date_str} | מצב: {status}"
+    subject = f"עדכון יומי | {date_str}"
 
     success = send_report(subject, report_text)
     if success:
